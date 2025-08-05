@@ -1,0 +1,872 @@
+﻿@page "/sucursales"
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.SucursalServices
+@using Microsoft.AspNetCore.Components.Web
+@inject ISucursalService SucursalService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
+	<MudPaper Elevation="3" Class="pa-4">
+		<MudGrid>
+			<!-- Header Section -->
+			<MudItem xs="12" Class="d-flex justify-space-between align-center mb-4">
+				<MudText Typo="Typo.h4" Class="d-flex align-center">
+					<MudIcon Icon="@Icons.Material.Filled.Business" Class="mr-3" Size="Size.Large" />
+					Gestión de Sucursales
+				</MudText>
+				<MudButtonGroup Variant="Variant.Filled">
+					<MudButton Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Business"
+							   OnClick="@(() => NavigationManager.NavigateTo("/sucursales/crear"))"
+							   Class="new-sucursal-button">
+						Nueva Sucursal
+					</MudButton>
+					<MudButton Color="@GetColorBotonVista(0)"
+							   StartIcon="@Icons.Material.Filled.Visibility"
+							   OnClick="@(() => CambiarVista(0))"
+							   Class="toggle-view-button">
+						Ver Activos
+					</MudButton>
+					<MudButton Color="@GetColorBotonVista(1)"
+							   StartIcon="@Icons.Material.Filled.VisibilityOff"
+							   OnClick="@(() => CambiarVista(1))"
+							   Class="toggle-view-button">
+						Ver Inactivos
+					</MudButton>
+					<MudButton Color="@GetColorBotonVista(2)"
+							   StartIcon="@Icons.Material.Filled.Visibility"
+							   OnClick="@(() => CambiarVista(2))"
+							   Class="toggle-view-button">
+						Ver Todos
+					</MudButton>
+				</MudButtonGroup>
+			</MudItem>
+
+			<!-- Filters Section -->
+			<MudItem xs="12">
+				<MudExpansionPanels Elevation="2" Class="mb-4">
+					<MudExpansionPanel Icon="@Icons.Material.Filled.FilterList" Text="Filtros de Búsqueda">
+						<MudGrid>
+							<MudItem xs="12" sm="6" md="4" lg="3">
+								<MudTextField @bind-Value="searchString"
+											  Label="Buscar"
+											  Placeholder="Nombre, Email..."
+											  Adornment="Adornment.Start"
+											  AdornmentIcon="@Icons.Material.Filled.Search"
+											  IconSize="Size.Medium"
+											  Clearable="true"
+											  DebounceInterval="500"
+											  OnDebounceIntervalElapsed="@CargarSucursales"
+											  OnKeyUp="@(async (KeyboardEventArgs e) => { if (e.Key == "Enter") await CargarSucursales(); })" />
+							</MudItem>
+							<MudItem xs="12" sm="6" md="2">
+								<MudSelect @bind-Value="filtroResponsable"
+										   Label="Responsable"
+										   Clearable="true"
+										   AdornmentIcon="@Icons.Material.Filled.Person"
+										   Adornment="Adornment.Start">
+									@if (personas != null && personas.Any())
+									{
+										@foreach (var persona in personas.Where(p => p.Activo == true))
+										{
+											<MudSelectItem Value="@persona.IdPersona.ToString()">
+												@($"{persona.Nombre} {persona.Apellido}")
+											</MudSelectItem>
+										}
+									}
+								</MudSelect>
+							</MudItem>
+							<MudItem xs="12" sm="6" md="2">
+								<MudSelect @bind-Value="filtroDepartamento"
+										   Label="Departamento"
+										   Clearable="true"
+										   AdornmentIcon="@Icons.Material.Filled.Map"
+										   Adornment="Adornment.Start">
+									@if (departamentos != null && departamentos.Any())
+									{
+										@foreach (var depto in departamentos)
+										{
+											<MudSelectItem Value="@depto.IdDepartamento.ToString()">@depto.NombreDepartamento</MudSelectItem>
+										}
+									}
+								</MudSelect>
+							</MudItem>
+							<MudItem xs="12" sm="6" md="2">
+								<MudSelect @bind-Value="filtroInventario"
+										   Label="Inventario"
+										   Clearable="true"
+										   AdornmentIcon="@Icons.Material.Filled.Inventory"
+										   Adornment="Adornment.Start">
+									@if (inventarios != null && inventarios.Any())
+									{
+										@foreach (var inventario in inventarios)
+										{
+											<MudSelectItem Value="@inventario.IdInventario.ToString()">@inventario.NombreInventario</MudSelectItem>
+										}
+									}
+								</MudSelect>
+							</MudItem>
+							<MudItem xs="12" md="12" lg="12" Class="d-flex justify-end gap-2 mt-2">
+								<MudButton Variant="Variant.Filled"
+										   Color="Color.Primary"
+										   StartIcon="@Icons.Material.Filled.Search"
+										   OnClick="@CargarSucursales"
+										   Class="search-button">
+									Buscar
+								</MudButton>
+								<MudButton Variant="Variant.Outlined"
+										   Color="Color.Secondary"
+										   StartIcon="@Icons.Material.Filled.Clear"
+										   OnClick="@LimpiarFiltros">
+									Limpiar Filtros
+								</MudButton>
+							</MudItem>
+						</MudGrid>
+					</MudExpansionPanel>
+				</MudExpansionPanels>
+			</MudItem>
+
+			<!-- Table Section -->
+			<MudItem xs="12">
+				<MudTable Items="@sucursalesPaginadas"
+						  Dense="false"
+						  Hover="true"
+						  Loading="@loading"
+						  LoadingProgressColor="Color.Primary"
+						  ServerData="@LoadServerData"
+						  @ref="table"
+						  ReadOnly="true"
+						  Elevation="2"
+						  Class="custom-table">
+					<LoadingContent>
+						<div class="d-flex flex-column justify-center align-center loading-container">
+							<MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+							<MudImage Src="images/Logo FarmaVita.png" Width="120" Height="120" Alt="FarmaVita Logo" Class="mt-4 pulse-img" />
+							<MudText Class="mt-3" Typo="Typo.h6" Color="Color.Primary">Cargando sucursales...</MudText>
+						</div>
+					</LoadingContent>
+					<HeaderContent>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Sucursal, object>(x => x.IdSucursal)">
+								<MudText Typo="Typo.subtitle1" Class="font-weight-bold">ID</MudText>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Sucursal, object>(x => x.NombreSucursal ?? string.Empty)">
+								<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Nombre</MudText>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh Class="d-none d-md-table-cell">
+							<MudTableSortLabel SortBy="new Func<Sucursal, object>(x => x.EmailSucursal ?? string.Empty)">
+								<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Email</MudText>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh Class="d-none d-lg-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Responsable</MudText>
+						</MudTh>
+						<MudTh Class="d-none d-lg-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Ubicación</MudText>
+						</MudTh>
+						<MudTh Class="d-none d-xl-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Horarios</MudText>
+						</MudTh>
+						<MudTh Class="d-none d-xl-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Teléfono</MudText>
+						</MudTh>
+						<MudTh>
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Estado</MudText>
+						</MudTh>
+						<MudTh>
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Acciones</MudText>
+						</MudTh>
+					</HeaderContent>
+					<RowTemplate Context="row">
+						<MudTd DataLabel="ID">
+							<MudChip T="string" Color="Color.Info" Size="Size.Small" Label="true" Class="id-chip">
+								#@row.IdSucursal
+							</MudChip>
+						</MudTd>
+						<MudTd DataLabel="Nombre">
+							<div class="d-flex flex-column">
+								<MudText Typo="Typo.body1" Class="font-weight-medium">
+									@row.NombreSucursal
+								</MudText>
+								<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-md-none">
+									@row.EmailSucursal
+								</MudText>
+							</div>
+						</MudTd>
+						<MudTd DataLabel="Email" Class="d-none d-md-table-cell">
+							<MudText Typo="Typo.body2" Class="text-truncate email-cell" Title="@row.EmailSucursal">
+								@row.EmailSucursal
+							</MudText>
+						</MudTd>
+						<MudTd DataLabel="Responsable" Class="d-none d-lg-table-cell">
+							@if (row.ResponsableSucursalNavigation != null)
+							{
+								<MudText Typo="Typo.body2">
+									@($"{row.ResponsableSucursalNavigation.Nombre} {row.ResponsableSucursalNavigation.Apellido}")
+								</MudText>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin responsable
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Ubicación" Class="d-none d-lg-table-cell">
+							@if (row.IdDireccionNavigation?.IdMunicipioNavigation != null)
+							{
+								<div class="d-flex flex-column">
+									<MudText Typo="Typo.body2">@row.IdDireccionNavigation.IdMunicipioNavigation.NombreMunicipio</MudText>
+									@if (row.IdDireccionNavigation.IdMunicipioNavigation.IdDepartamentoNavigation != null)
+									{
+										<MudText Typo="Typo.caption" Color="Color.Secondary">
+											@row.IdDireccionNavigation.IdMunicipioNavigation.IdDepartamentoNavigation.NombreDepartamento
+										</MudText>
+									}
+								</div>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin ubicación
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Horarios" Class="d-none d-xl-table-cell">
+							@if (row.HorarioApertura.HasValue && row.HorarioCierre.HasValue)
+							{
+								<div class="d-flex flex-column">
+									<MudText Typo="Typo.body2">
+										@row.HorarioApertura.Value.ToString("HH:mm") - @row.HorarioCierre.Value.ToString("HH:mm")
+									</MudText>
+								</div>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin horarios
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Teléfono" Class="d-none d-xl-table-cell">
+							@if (row.IdTelefonoNavigation != null)
+							{
+								<MudText Typo="Typo.body2">@row.IdTelefonoNavigation.NumeroTelefonico</MudText>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin teléfono
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Estado">
+							<MudChip T="string"
+									 Color="@(row.Activo == true ? Color.Success : Color.Error)"
+									 Size="Size.Small"
+									 Label="true"
+									 Icon="@(row.Activo == true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)">
+								@(row.Activo == true ? "Activa" : "Inactiva")
+							</MudChip>
+						</MudTd>
+						<MudTd>
+							<MudMenu Icon="@Icons.Material.Filled.MoreVert"
+									 Size="Size.Small"
+									 Dense="true"
+									 Class="action-menu">
+								<MudMenuItem Icon="@Icons.Material.Filled.Visibility"
+											 OnClick="@(() => VerDetalles(row))"
+											 Class="menu-item-view">
+									Ver Detalles
+								</MudMenuItem>
+								<MudMenuItem Icon="@Icons.Material.Filled.Edit"
+											 OnClick="@(() => EditarSucursal(row))"
+											 Class="menu-item-edit">
+									Editar
+								</MudMenuItem>
+								@if (row.Activo == true)
+								{
+									<MudMenuItem Icon="@Icons.Material.Filled.Store"
+												 OnClick="@(() => DesactivarSucursal(row))"
+												 Class="menu-item-deactivate">
+										Desactivar
+									</MudMenuItem>
+								}
+								else
+								{
+									<MudMenuItem Icon="@Icons.Material.Filled.Business"
+												 OnClick="@(() => ActivarSucursal(row))"
+												 Class="menu-item-activate">
+										Activar
+									</MudMenuItem>
+								}
+								<MudDivider Class="my-1" />
+								<MudMenuItem Icon="@Icons.Material.Filled.Delete"
+											 OnClick="@(() => EliminarSucursal(row))"
+											 Class="menu-item-delete">
+									Eliminar
+								</MudMenuItem>
+							</MudMenu>
+						</MudTd>
+					</RowTemplate>
+					<PagerContent>
+						<MudTablePager RowsPerPageString="Sucursales por página:"
+									   InfoFormat="@("{first_item}-{last_item} de {all_items}")"
+									   PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+					</PagerContent>
+				</MudTable>
+			</MudItem>
+
+			<!-- Mobile Cards View -->
+			<MudHidden Breakpoint="Breakpoint.SmAndUp" Invert="true">
+				<MudItem xs="12">
+					@if (sucursalesPaginadas?.Any() == true)
+					{
+						@foreach (var sucursal in sucursalesPaginadas)
+						{
+							<MudCard Class="mb-3 mobile-card" Elevation="3">
+								<MudCardContent>
+									<div class="d-flex justify-space-between align-start mb-3">
+										<div class="flex-grow-1">
+											<MudText Typo="Typo.h6" Class="mb-2 text-primary">
+												@sucursal.NombreSucursal
+											</MudText>
+											<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+												<MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" Class="mr-1" />
+												@sucursal.EmailSucursal
+											</MudText>
+											<div class="d-flex flex-wrap gap-2 mb-3">
+												<MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Tag">
+													ID: @sucursal.IdSucursal
+												</MudChip>
+												<MudChip T="string"
+														 Size="Size.Small"
+														 Color="@(sucursal.Activo == true ? Color.Success : Color.Error)"
+														 Icon="@(sucursal.Activo == true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)">
+													@(sucursal.Activo == true ? "Activa" : "Inactiva")
+												</MudChip>
+											</div>
+											@if (sucursal.ResponsableSucursalNavigation != null)
+											{
+												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-flex align-center">
+													<MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" />
+													Responsable: @($"{sucursal.ResponsableSucursalNavigation.Nombre} {sucursal.ResponsableSucursalNavigation.Apellido}")
+												</MudText>
+											}
+											@if (sucursal.IdDireccionNavigation?.IdMunicipioNavigation != null)
+											{
+												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-flex align-center mt-1">
+													<MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Class="mr-1" />
+													@sucursal.IdDireccionNavigation.IdMunicipioNavigation.NombreMunicipio
+												</MudText>
+											}
+											@if (sucursal.HorarioApertura.HasValue && sucursal.HorarioCierre.HasValue)
+											{
+												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-flex align-center mt-1">
+													<MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />
+													@sucursal.HorarioApertura.Value.ToString("HH:mm") - @sucursal.HorarioCierre.Value.ToString("HH:mm")
+												</MudText>
+											}
+										</div>
+										<MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Class="action-menu">
+											<MudMenuItem Icon="@Icons.Material.Filled.Visibility"
+														 OnClick="@(() => VerDetalles(sucursal))">
+												Ver Detalles
+											</MudMenuItem>
+											<MudMenuItem Icon="@Icons.Material.Filled.Edit"
+														 OnClick="@(() => EditarSucursal(sucursal))">
+												Editar
+											</MudMenuItem>
+											@if (sucursal.Activo == true)
+											{
+												<MudMenuItem Icon="@Icons.Material.Filled.Store"
+															 OnClick="@(() => DesactivarSucursal(sucursal))">
+													Desactivar
+												</MudMenuItem>
+											}
+											else
+											{
+												<MudMenuItem Icon="@Icons.Material.Filled.Business"
+															 OnClick="@(() => ActivarSucursal(sucursal))">
+													Activar
+												</MudMenuItem>
+											}
+											<MudDivider />
+											<MudMenuItem Icon="@Icons.Material.Filled.Delete"
+														 OnClick="@(() => EliminarSucursal(sucursal))"
+														 Class="text-error">
+												Eliminar
+											</MudMenuItem>
+										</MudMenu>
+									</div>
+								</MudCardContent>
+							</MudCard>
+						}
+					}
+					else if (!loading)
+					{
+						<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info" Class="ma-4">
+							<MudText>No se encontraron sucursales con los filtros aplicados.</MudText>
+						</MudAlert>
+					}
+				</MudItem>
+			</MudHidden>
+		</MudGrid>
+	</MudPaper>
+</MudContainer>
+
+<style>
+	/* Button Styles */
+	.new-sucursal-button .mud-button {
+		background-color: #03346c !important;
+		color: white !important;
+		transition: all 0.3s ease;
+	}
+
+		.new-sucursal-button .mud-button:hover {
+			background-color: #024590 !important;
+			transform: translateY(-1px);
+			box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+		}
+
+	.toggle-view-button .mud-button {
+		background-color: #6c757d !important;
+		color: white !important;
+		transition: all 0.3s ease;
+	}
+
+		.toggle-view-button .mud-button:hover {
+			background-color: #5a6268 !important;
+			transform: translateY(-1px);
+		}
+
+	.search-button {
+		min-width: 120px;
+	}
+
+	/* Table Styles */
+	.custom-table {
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+		.custom-table .mud-table-head {
+			background-color: #f8f9fa;
+		}
+
+		.custom-table .mud-table-row:hover {
+			background-color: #f0f7ff;
+			transition: background-color 0.2s ease;
+		}
+
+	/* Text and Layout */
+	.text-truncate {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.email-cell {
+		max-width: 200px;
+	}
+
+	.id-chip {
+		font-weight: 600;
+	}
+
+	/* Loading Animation */
+	.loading-container {
+		height: 50vh;
+		padding: 2rem;
+	}
+
+	.pulse-img {
+		animation: pulse 2s infinite;
+	}
+
+	@@keyframes pulse {
+		0% {
+			opacity: 1;
+			transform: scale(1);
+		}
+
+		50% {
+			opacity: 0.7;
+			transform: scale(1.05);
+		}
+
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	/* Mobile Cards */
+	.mobile-card {
+		border-left: 4px solid #03346c;
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+		.mobile-card:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+		}
+
+	.text-primary {
+		color: #03346c !important;
+	}
+
+	/* Menu Items */
+	.menu-item-view:hover {
+		background-color: rgba(33, 150, 243, 0.1);
+	}
+
+	.menu-item-edit:hover {
+		background-color: rgba(255, 152, 0, 0.1);
+	}
+
+	.menu-item-activate:hover {
+		background-color: rgba(76, 175, 80, 0.1);
+	}
+
+	.menu-item-deactivate:hover {
+		background-color: rgba(255, 193, 7, 0.1);
+	}
+
+	.menu-item-delete:hover {
+		background-color: rgba(244, 67, 54, 0.1);
+		color: #f44336 !important;
+	}
+
+	/* Responsive Design */
+	@@media (max-width: 768px) {
+		.loading-container {
+			height: 40vh;
+		}
+
+		.pulse-img {
+			width: 80px !important;
+			height: 80px !important;
+		}
+	}
+</style>
+
+@code {
+	private bool loading = true;
+	private string searchString = "";
+	private string filtroResponsable = "";
+	private string filtroDepartamento = "";
+	private string filtroInventario = "";
+	private bool mostrarInactivos = false;
+	private bool mostrarTodos = false;
+	private int vistaActual = 0; // 0=Activos, 1=Inactivos, 2=Todos
+
+	private List<Sucursal> todasLasSucursales = new();
+	private List<Sucursal> sucursalesPaginadas = new();
+	private List<Persona> personas = new();
+	private List<Departamento> departamentos = new();
+	private List<Inventario> inventarios = new();
+
+	private MudTable<Sucursal> table;
+	private int totalItems = 0;
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			await CargarDatosIniciales();
+			await CargarSucursales();
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al cargar sucursales: {ex.Message}", Severity.Error);
+		}
+	}
+
+	private async Task CambiarVista(int vista)
+	{
+		vistaActual = vista;
+		switch (vista)
+		{
+			case 0: // Activos
+				mostrarInactivos = false;
+				mostrarTodos = false;
+				break;
+			case 1: // Inactivos
+				mostrarInactivos = true;
+				mostrarTodos = false;
+				break;
+			case 2: // Todos
+				mostrarInactivos = false;
+				mostrarTodos = true;
+				break;
+		}
+		await CargarSucursales();
+	}
+
+	private Color GetColorBotonVista(int vista)
+	{
+		return vistaActual == vista ? Color.Primary : Color.Secondary;
+	}
+
+	private async Task LimpiarFiltros()
+	{
+		searchString = "";
+		filtroResponsable = "";
+		filtroDepartamento = "";
+		filtroInventario = "";
+		await CargarSucursales();
+	}
+
+	private void VerDetalles(Sucursal sucursal)
+	{
+		NavigationManager.NavigateTo($"/sucursales/detalles/{sucursal.IdSucursal}");
+	}
+
+	private void EditarSucursal(Sucursal sucursal)
+	{
+		NavigationManager.NavigateTo($"/sucursales/editar/{sucursal.IdSucursal}");
+	}
+
+	private async Task DesactivarSucursal(Sucursal sucursal)
+	{
+		bool? result = await DialogService.ShowMessageBox(
+			"Confirmar desactivación",
+			$"¿Está seguro que desea desactivar la sucursal {sucursal.NombreSucursal}?",
+			yesText: "Desactivar",
+			noText: "Cancelar",
+			options: new DialogOptions() { MaxWidth = MaxWidth.Small });
+
+		if (result ?? false)
+		{
+			try
+			{
+				loading = true;
+				StateHasChanged();
+
+				sucursal.Activo = false;
+				bool actualizado = await SucursalService.UpdateAsync(sucursal);
+
+				if (actualizado)
+				{
+					Snackbar.Add($"Sucursal {sucursal.NombreSucursal} desactivada exitosamente", Severity.Success);
+					await CargarSucursales();
+				}
+				else
+				{
+					Snackbar.Add("No se pudo desactivar la sucursal", Severity.Error);
+				}
+			}
+			catch (Exception ex)
+			{
+				Snackbar.Add($"Error al desactivar la sucursal: {ex.Message}", Severity.Error);
+			}
+			finally
+			{
+				loading = false;
+			}
+		}
+	}
+
+	private async Task ActivarSucursal(Sucursal sucursal)
+	{
+		try
+		{
+			loading = true;
+			StateHasChanged();
+
+			sucursal.Activo = true;
+			bool actualizado = await SucursalService.UpdateAsync(sucursal);
+
+			if (actualizado)
+			{
+				Snackbar.Add($"Sucursal {sucursal.NombreSucursal} activada exitosamente", Severity.Success);
+				await CargarSucursales();
+			}
+			else
+			{
+				Snackbar.Add("No se pudo activar la sucursal", Severity.Error);
+			}
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al activar la sucursal: {ex.Message}", Severity.Error);
+		}
+		finally
+		{
+			loading = false;
+		}
+	}
+
+	private async Task EliminarSucursal(Sucursal sucursal)
+	{
+		bool? result = await DialogService.ShowMessageBox(
+			"⚠️ Confirmar eliminación",
+			$"¿Está seguro que desea eliminar permanentemente la sucursal {sucursal.NombreSucursal}?\n\nEsta acción NO se puede deshacer y eliminará todos los datos relacionados con esta sucursal.",
+			yesText: "Eliminar",
+			noText: "Cancelar",
+			options: new DialogOptions() { MaxWidth = MaxWidth.Small });
+
+		if (result ?? false)
+		{
+			try
+			{
+				loading = true;
+				StateHasChanged();
+
+				bool eliminado = await SucursalService.DeleteAsync(sucursal.IdSucursal);
+
+				if (eliminado)
+				{
+					Snackbar.Add($"Sucursal {sucursal.NombreSucursal} eliminada exitosamente", Severity.Success);
+					await CargarSucursales();
+				}
+				else
+				{
+					Snackbar.Add("No se pudo eliminar la sucursal", Severity.Error);
+				}
+			}
+			catch (Exception ex)
+			{
+				Snackbar.Add($"Error al eliminar la sucursal: {ex.Message}", Severity.Error);
+			}
+			finally
+			{
+				loading = false;
+			}
+		}
+	}
+
+	private async Task CargarDatosIniciales()
+	{
+		try
+		{
+			loading = true;
+			StateHasChanged();
+
+			var tasks = new List<Task>
+			{
+				CargarPersonas(),
+				CargarDepartamentos(),
+				CargarInventarios()
+			};
+
+			await Task.WhenAll(tasks);
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al cargar datos iniciales: {ex.Message}", Severity.Error);
+		}
+		finally
+		{
+			loading = false;
+		}
+	}
+
+	private async Task CargarPersonas()
+	{
+		try
+		{
+			personas = await SucursalService.GetPersonasAsync() ?? new List<Persona>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando personas: {ex.Message}");
+			personas = new List<Persona>();
+		}
+	}
+
+	private async Task CargarDepartamentos()
+	{
+		try
+		{
+			departamentos = await SucursalService.GetDepartamentosAsync() ?? new List<Departamento>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando departamentos: {ex.Message}");
+			departamentos = new List<Departamento>();
+		}
+	}
+
+	private async Task CargarInventarios()
+	{
+		try
+		{
+			inventarios = await SucursalService.GetInventariosAsync() ?? new List<Inventario>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando inventarios: {ex.Message}");
+			inventarios = new List<Inventario>();
+		}
+	}
+
+	private async Task<TableData<Sucursal>> LoadServerData(TableState state, CancellationToken cancellationToken)
+	{
+		try
+		{
+			loading = true;
+			StateHasChanged();
+
+			// Convertir filtros de string a int?
+			int? responsableId = string.IsNullOrEmpty(filtroResponsable) ? null : int.TryParse(filtroResponsable, out var r) ? r : null;
+			int? departamentoId = string.IsNullOrEmpty(filtroDepartamento) ? null : int.TryParse(filtroDepartamento, out var d) ? d : null;
+			int? inventarioId = string.IsNullOrEmpty(filtroInventario) ? null : int.TryParse(filtroInventario, out var i) ? i : null;
+
+			var (sucursales, totalCount) = await SucursalService.GetPaginatedAsync(
+				state.Page + 1,
+				state.PageSize,
+				searchString?.Trim(),
+				state.SortDirection != SortDirection.Descending,
+				state.SortLabel ?? "NombreSucursal",
+				mostrarInactivos,
+				mostrarTodos,
+				responsableId,
+				inventarioId,
+				departamentoId,
+				null // municipioId - se puede agregar más tarde si es necesario
+			);
+
+			sucursalesPaginadas = sucursales ?? new List<Sucursal>();
+			totalItems = totalCount;
+
+			return new TableData<Sucursal>
+			{
+				Items = sucursalesPaginadas,
+				TotalItems = totalCount
+			};
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al cargar sucursales: {ex.Message}", Severity.Error);
+			Console.WriteLine($"Error en LoadServerData: {ex}");
+			return new TableData<Sucursal> { Items = new List<Sucursal>(), TotalItems = 0 };
+		}
+		finally
+		{
+			loading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task CargarSucursales()
+	{
+		try
+		{
+			if (table != null)
+			{
+				await table.ReloadServerData();
+			}
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al cargar la información: {ex.Message}", Severity.Error);
+		}
+	}
+}

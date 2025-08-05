@@ -1,0 +1,1144 @@
+﻿@page "/personas"
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.PersonaServices
+@inject IPersonaService PersonaService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@implements IDisposable
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
+	<MudPaper Elevation="3" Class="pa-4">
+		<MudGrid>
+			<!-- Header Section -->
+			<MudItem xs="12" Class="d-flex justify-space-between align-center mb-4">
+				<MudText Typo="Typo.h4" Class="d-flex align-center">
+					<MudIcon Icon="@Icons.Material.Filled.People" Class="mr-3" Size="Size.Large" />
+					Gestión de Personas
+				</MudText>
+				<MudButtonGroup Variant="Variant.Filled">
+					<MudButton Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.PersonAdd"
+							   OnClick="@(() => NavigationManager.NavigateTo("/personas/crear"))"
+							   Class="new-person-button">
+						Nueva Persona
+					</MudButton>
+					<MudButton Color="@(mostrarInactivos? Color.Secondary: Color.Primary)"
+							   StartIcon="@(mostrarInactivos ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+							   OnClick="@CambiarVistaPersonas"
+							   Class="toggle-view-button">
+						@(mostrarInactivos ? "Ver Activos" : "Ver Inactivos")
+					</MudButton>
+				</MudButtonGroup>
+			</MudItem>
+
+			<!-- Filters Section -->
+			<MudItem xs="12">
+				<MudExpansionPanels Elevation="2" Class="mb-4">
+					<MudExpansionPanel Icon="@Icons.Material.Filled.FilterList" Text="Filtros de Búsqueda">
+						<MudGrid>
+							<MudItem xs="12" sm="6" md="4" lg="3">
+								<MudTextField @bind-Value="searchString"
+											  Label="Buscar"
+											  Placeholder="Nombre, Apellido, Email, DPI..."
+											  Adornment="Adornment.Start"
+											  AdornmentIcon="@Icons.Material.Filled.Search"
+											  IconSize="Size.Medium"
+											  Clearable="true"
+											  DebounceInterval="500"
+											  OnDebounceIntervalElapsed="@OnSearchChanged"
+											  OnKeyUp="@OnSearchKeyUp" />
+							</MudItem>
+							<MudItem xs="12" sm="6" md="2">
+								<MudSelect @bind-Value="filtroRol"
+										   Label="Rol"
+										   Clearable="true"
+										   AdornmentIcon="@Icons.Material.Filled.Work"
+										   Adornment="Adornment.Start">
+									@if (roles?.Any() == true)
+									{
+										@foreach (var rol in roles)
+										{
+											<MudSelectItem Value="@rol.IdRol">@rol.TipoRol</MudSelectItem>
+										}
+									}
+								</MudSelect>
+							</MudItem>
+							<MudItem xs="12" sm="6" md="2">
+								<MudSelect @bind-Value="filtroSucursal"
+										   Label="Sucursal"
+										   Clearable="true"
+										   AdornmentIcon="@Icons.Material.Filled.Business"
+										   Adornment="Adornment.Start">
+									@if (sucursales?.Any() == true)
+									{
+										@foreach (var sucursal in sucursales)
+										{
+											<MudSelectItem Value="@sucursal.IdSucursal">@sucursal.NombreSucursal</MudSelectItem>
+										}
+									}
+								</MudSelect>
+							</MudItem>
+							<MudItem xs="12" sm="6" md="2">
+								<MudSelect @bind-Value="filtroGenero"
+										   Label="Género"
+										   Clearable="true"
+										   AdornmentIcon="@Icons.Material.Filled.Person"
+										   Adornment="Adornment.Start">
+									@if (generos?.Any() == true)
+									{
+										@foreach (var genero in generos)
+										{
+											<MudSelectItem Value="@genero.IdGenero">@genero.Ngenero</MudSelectItem>
+										}
+									}
+								</MudSelect>
+							</MudItem>
+							<MudItem xs="12" sm="6" md="2">
+								<MudSelect @bind-Value="filtroEstadoCivil"
+										   Label="Estado Civil"
+										   Clearable="true"
+										   AdornmentIcon="@Icons.Material.Filled.Favorite"
+										   Adornment="Adornment.Start">
+									@if (estadosCiviles?.Any() == true)
+									{
+										@foreach (var estado in estadosCiviles)
+										{
+											<MudSelectItem Value="@estado.IdEstadoCivil">@estado.EstadoCivil1</MudSelectItem>
+										}
+									}
+								</MudSelect>
+							</MudItem>
+							<MudItem xs="12" md="12" lg="12" Class="d-flex justify-end gap-2 mt-2">
+								<MudButton Variant="Variant.Filled"
+										   Color="Color.Primary"
+										   StartIcon="@Icons.Material.Filled.Search"
+										   OnClick="@OnBuscarClick"
+										   Class="search-button">
+									Buscar
+								</MudButton>
+								<MudButton Variant="Variant.Outlined"
+										   Color="Color.Secondary"
+										   StartIcon="@Icons.Material.Filled.Clear"
+										   OnClick="@LimpiarFiltros">
+									Limpiar Filtros
+								</MudButton>
+							</MudItem>
+						</MudGrid>
+					</MudExpansionPanel>
+				</MudExpansionPanels>
+			</MudItem>
+
+			<!-- Table Section -->
+			<MudItem xs="12">
+				<MudTable T="Persona"
+						  Dense="false"
+						  Hover="true"
+						  Loading="@loading"
+						  LoadingProgressColor="Color.Primary"
+						  ServerData="@LoadServerData"
+						  @ref="table"
+						  Elevation="2"
+						  Class="custom-table">
+					<LoadingContent>
+						<div class="d-flex flex-column justify-center align-center loading-container">
+							<MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+							<MudImage Src="images/Logo FarmaVita.png" Width="120" Height="120" Alt="FarmaVita Logo" Class="mt-4 pulse-img" />
+							<MudText Class="mt-3" Typo="Typo.h6" Color="Color.Primary">Cargando personas...</MudText>
+						</div>
+					</LoadingContent>
+					<HeaderContent>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Persona, object>(x => x.IdPersona)">
+								<MudText Typo="Typo.subtitle1" Class="font-weight-bold">ID</MudText>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudTableSortLabel SortBy="new Func<Persona, object>(x => x.Nombre ?? string.Empty)">
+								<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Nombre Completo</MudText>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh Class="d-none d-md-table-cell">
+							<MudTableSortLabel SortBy="new Func<Persona, object>(x => x.Email ?? string.Empty)">
+								<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Email</MudText>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh Class="d-none d-lg-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">DPI</MudText>
+						</MudTh>
+						<MudTh Class="d-none d-lg-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Rol</MudText>
+						</MudTh>
+						<MudTh Class="d-none d-xl-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Sucursal</MudText>
+						</MudTh>
+						<MudTh Class="d-none d-xl-table-cell">
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Teléfono</MudText>
+						</MudTh>
+						<MudTh>
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Estado</MudText>
+						</MudTh>
+						<MudTh Class="d-none d-md-table-cell">
+							<MudTableSortLabel SortBy="new Func<Persona, object>(x => x.FechaCreacion ?? DateTime.MinValue)">
+								<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Fecha Registro</MudText>
+							</MudTableSortLabel>
+						</MudTh>
+						<MudTh>
+							<MudText Typo="Typo.subtitle1" Class="font-weight-bold">Acciones</MudText>
+						</MudTh>
+					</HeaderContent>
+					<RowTemplate Context="row">
+						<MudTd DataLabel="ID">
+							<MudChip T="string" Color="Color.Info" Size="Size.Small" Label="true" Class="id-chip">
+								#@row.IdPersona
+							</MudChip>
+						</MudTd>
+						<MudTd DataLabel="Nombre Completo">
+							<div class="d-flex flex-column">
+								<MudText Typo="Typo.body1" Class="font-weight-medium">
+									@($"{row.Nombre ?? ""} {row.Apellido ?? ""}")
+								</MudText>
+								<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-md-none">
+									@(row.Email ?? "")
+								</MudText>
+							</div>
+						</MudTd>
+						<MudTd DataLabel="Email" Class="d-none d-md-table-cell">
+							<MudText Typo="Typo.body2" Class="text-truncate email-cell" Title="@(row.Email ?? "")">
+								@(row.Email ?? "Sin email")
+							</MudText>
+						</MudTd>
+						<MudTd DataLabel="DPI" Class="d-none d-lg-table-cell">
+							@if (row.Dpi.HasValue)
+							{
+								<MudText Typo="Typo.body2">@row.Dpi.Value.ToString("N0")</MudText>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin DPI
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Rol" Class="d-none d-lg-table-cell">
+							@{
+								var rolText = GetRolText(row);
+							}
+							@if (!string.IsNullOrEmpty(rolText))
+							{
+								<MudChip T="string" Color="Color.Primary" Size="Size.Small" Label="true">
+									@rolText
+								</MudChip>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin rol
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Sucursal" Class="d-none d-xl-table-cell">
+							@{
+								var sucursalText = GetSucursalText(row);
+							}
+							@if (!string.IsNullOrEmpty(sucursalText))
+							{
+								<MudText Typo="Typo.body2">@sucursalText</MudText>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin sucursal
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Teléfono" Class="d-none d-xl-table-cell">
+							@{
+								var telefonoText = GetTelefonoText(row);
+							}
+							@if (!string.IsNullOrEmpty(telefonoText))
+							{
+								<MudText Typo="Typo.body2">@telefonoText</MudText>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin teléfono
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd DataLabel="Estado">
+							<MudChip T="string"
+									 Color="@(row.Activo == true ? Color.Success : Color.Error)"
+									 Size="Size.Small"
+									 Label="true"
+									 Icon="@(row.Activo == true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)">
+								@(row.Activo == true ? "Activo" : "Inactivo")
+							</MudChip>
+						</MudTd>
+						<MudTd DataLabel="Fecha Registro" Class="d-none d-md-table-cell">
+							@if (row.FechaCreacion.HasValue)
+							{
+								<div class="d-flex flex-column">
+									<MudText Typo="Typo.body2">@row.FechaCreacion.Value.ToString("dd/MM/yyyy")</MudText>
+									<MudText Typo="Typo.caption" Color="Color.Secondary">
+										@row.FechaCreacion.Value.ToString("HH:mm")
+									</MudText>
+								</div>
+							}
+							else
+							{
+								<MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+									Sin fecha
+								</MudChip>
+							}
+						</MudTd>
+						<MudTd>
+							<MudMenu Icon="@Icons.Material.Filled.MoreVert"
+									 Size="Size.Small"
+									 Dense="true"
+									 Class="action-menu">
+								<MudMenuItem Icon="@Icons.Material.Filled.Visibility"
+											 OnClick="@(() => VerDetalles(row))"
+											 Class="menu-item-view">
+									Ver Detalles
+								</MudMenuItem>
+								<MudMenuItem Icon="@Icons.Material.Filled.Edit"
+											 OnClick="@(() => EditarPersona(row))"
+											 Class="menu-item-edit">
+									Editar
+								</MudMenuItem>
+								@if (row.Activo == true)
+								{
+									<MudMenuItem Icon="@Icons.Material.Filled.PersonOff"
+												 OnClick="@(() => DesactivarPersona(row))"
+												 Class="menu-item-deactivate">
+										Desactivar
+									</MudMenuItem>
+								}
+								else
+								{
+									<MudMenuItem Icon="@Icons.Material.Filled.PersonAdd"
+												 OnClick="@(() => ActivarPersona(row))"
+												 Class="menu-item-activate">
+										Activar
+									</MudMenuItem>
+								}
+								<MudDivider Class="my-1" />
+								<MudMenuItem Icon="@Icons.Material.Filled.Delete"
+											 OnClick="@(() => EliminarPersona(row))"
+											 Class="menu-item-delete">
+									Eliminar
+								</MudMenuItem>
+							</MudMenu>
+						</MudTd>
+					</RowTemplate>
+					<NoRecordsContent>
+						<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info" Class="ma-4">
+							<MudText>No se encontraron personas con los filtros aplicados.</MudText>
+						</MudAlert>
+					</NoRecordsContent>
+					<PagerContent>
+						<MudTablePager RowsPerPageString="Personas por página:"
+									   InfoFormat="@("{first_item}-{last_item} de {all_items}")"
+									   PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+					</PagerContent>
+				</MudTable>
+			</MudItem>
+
+			<!-- Mobile Cards View -->
+			<MudHidden Breakpoint="Breakpoint.SmAndUp" Invert="true">
+				<MudItem xs="12">
+					@if (currentTableData?.Items?.Any() == true)
+					{
+						@foreach (var persona in currentTableData.Items)
+						{
+							<MudCard Class="mb-3 mobile-card" Elevation="3">
+								<MudCardContent>
+									<div class="d-flex justify-space-between align-start mb-3">
+										<div class="flex-grow-1">
+											<MudText Typo="Typo.h6" Class="mb-2 text-primary">
+												@($"{persona.Nombre ?? ""} {persona.Apellido ?? ""}")
+											</MudText>
+											<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+												<MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" Class="mr-1" />
+												@(persona.Email ?? "Sin email")
+											</MudText>
+											<div class="d-flex flex-wrap gap-2 mb-3">
+												<MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Tag">
+													ID: @persona.IdPersona
+												</MudChip>
+												<MudChip T="string"
+														 Size="Size.Small"
+														 Color="@(persona.Activo == true ? Color.Success : Color.Error)"
+														 Icon="@(persona.Activo == true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)">
+													@(persona.Activo == true ? "Activo" : "Inactivo")
+												</MudChip>
+												@{
+													var rolText = GetRolText(persona);
+												}
+												@if (!string.IsNullOrEmpty(rolText))
+												{
+													<MudChip T="string" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.Work">
+														@rolText
+													</MudChip>
+												}
+											</div>
+											@if (persona.Dpi.HasValue)
+											{
+												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-flex align-center">
+													<MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Class="mr-1" />
+													DPI: @persona.Dpi.Value.ToString("N0")
+												</MudText>
+											}
+											@if (persona.FechaCreacion.HasValue)
+											{
+												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-flex align-center mt-1">
+													<MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Class="mr-1" />
+													Registrado: @persona.FechaCreacion.Value.ToString("dd/MM/yyyy")
+												</MudText>
+											}
+										</div>
+										<MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Class="action-menu">
+											<MudMenuItem Icon="@Icons.Material.Filled.Visibility"
+														 OnClick="@(() => VerDetalles(persona))">
+												Ver Detalles
+											</MudMenuItem>
+											<MudMenuItem Icon="@Icons.Material.Filled.Edit"
+														 OnClick="@(() => EditarPersona(persona))">
+												Editar
+											</MudMenuItem>
+											@if (persona.Activo == true)
+											{
+												<MudMenuItem Icon="@Icons.Material.Filled.PersonOff"
+															 OnClick="@(() => DesactivarPersona(persona))">
+													Desactivar
+												</MudMenuItem>
+											}
+											else
+											{
+												<MudMenuItem Icon="@Icons.Material.Filled.PersonAdd"
+															 OnClick="@(() => ActivarPersona(persona))">
+													Activar
+												</MudMenuItem>
+											}
+											<MudDivider />
+											<MudMenuItem Icon="@Icons.Material.Filled.Delete"
+														 OnClick="@(() => EliminarPersona(persona))"
+														 Class="text-error">
+												Eliminar
+											</MudMenuItem>
+										</MudMenu>
+									</div>
+								</MudCardContent>
+							</MudCard>
+						}
+					}
+					else if (!loading)
+					{
+						<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info" Class="ma-4">
+							<MudText>No se encontraron personas con los filtros aplicados.</MudText>
+						</MudAlert>
+					}
+				</MudItem>
+			</MudHidden>
+		</MudGrid>
+	</MudPaper>
+</MudContainer>
+
+<style>
+	/* Button Styles */
+	.new-person-button .mud-button {
+		background-color: #03346c !important;
+		color: white !important;
+		transition: all 0.3s ease;
+	}
+
+		.new-person-button .mud-button:hover {
+			background-color: #024590 !important;
+			transform: translateY(-1px);
+			box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+		}
+
+	.toggle-view-button .mud-button {
+		background-color: #6c757d !important;
+		color: white !important;
+		transition: all 0.3s ease;
+	}
+
+		.toggle-view-button .mud-button:hover {
+			background-color: #5a6268 !important;
+			transform: translateY(-1px);
+		}
+
+	.search-button {
+		min-width: 120px;
+	}
+
+	/* Table Styles */
+	.custom-table {
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+		.custom-table .mud-table-head {
+			background-color: #f8f9fa;
+		}
+
+		.custom-table .mud-table-row:hover {
+			background-color: #f0f7ff;
+			transition: background-color 0.2s ease;
+		}
+
+	/* Text and Layout */
+	.text-truncate {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.email-cell {
+		max-width: 200px;
+	}
+
+	.id-chip {
+		font-weight: 600;
+	}
+
+	/* Loading Animation */
+	.loading-container {
+		height: 50vh;
+		padding: 2rem;
+	}
+
+	.pulse-img {
+		animation: pulse 2s infinite;
+	}
+
+
+	/* Mobile Cards */
+	.mobile-card {
+		border-left: 4px solid #03346c;
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+		.mobile-card:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+		}
+
+	.text-primary {
+		color: #03346c !important;
+	}
+
+	/* Menu Items */
+	.menu-item-view:hover {
+		background-color: rgba(33, 150, 243, 0.1);
+	}
+
+	.menu-item-edit:hover {
+		background-color: rgba(255, 152, 0, 0.1);
+	}
+
+	.menu-item-activate:hover {
+		background-color: rgba(76, 175, 80, 0.1);
+	}
+
+	.menu-item-deactivate:hover {
+		background-color: rgba(255, 193, 7, 0.1);
+	}
+
+	.menu-item-delete:hover {
+		background-color: rgba(244, 67, 54, 0.1);
+		color: #f44336 !important;
+	}
+
+
+</style>
+
+@code {
+	// Variables para controlar concurrencia
+	private bool loading = true;
+	private bool _isLoadingData = false; // Nueva variable para prevenir concurrencia
+	private readonly SemaphoreSlim _loadingSemaphore = new(1, 1); // Semáforo para control de acceso
+	private string searchString = "";
+	private int? filtroRol = null;
+	private int? filtroSucursal = null;
+	private int? filtroGenero = null;
+	private int? filtroEstadoCivil = null;
+	private bool mostrarInactivos = false;
+
+	private List<Rol> roles = new();
+	private List<Sucursal> sucursales = new();
+	private List<Genero> generos = new();
+	private List<EstadoCivil> estadosCiviles = new();
+
+	private MudTable<Persona>? table;
+	private TableData<Persona> currentTableData = new() { Items = new List<Persona>(), TotalItems = 0 };
+
+	// CancellationToken para operaciones async
+	private CancellationTokenSource? _cancellationTokenSource;
+	private bool _disposed = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		_cancellationTokenSource = new CancellationTokenSource();
+
+		try
+		{
+			await CargarDatosIniciales();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error en OnInitializedAsync: {ex}");
+			// No mostrar error en OnInitializedAsync para evitar problemas de circuito
+			// Solo log del error
+		}
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			try
+			{
+				// Recargar datos después del primer render si es necesario
+				if (currentTableData.Items?.Any() != true && table != null)
+				{
+					await table.ReloadServerData();
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error en OnAfterRenderAsync: {ex}");
+			}
+		}
+	}
+
+	// Métodos auxiliares para obtener texto de forma segura
+	private string GetRolText(Persona persona)
+	{
+		try
+		{
+			return persona?.IdRoolNavigation?.TipoRol ?? "";
+		}
+		catch
+		{
+			return "";
+		}
+	}
+
+	private string GetSucursalText(Persona persona)
+	{
+		try
+		{
+			if (persona?.IdSucursal.HasValue == true && sucursales?.Any() == true)
+			{
+				var sucursal = sucursales.FirstOrDefault(s => s.IdSucursal == persona.IdSucursal);
+				return sucursal?.NombreSucursal ?? "";
+			}
+			return "";
+		}
+		catch
+		{
+			return "";
+		}
+	}
+
+	private string GetTelefonoText(Persona persona)
+	{
+		try
+		{
+			return persona?.IdTelefonoNavigation?.NumeroTelefonico?.ToString() ?? "";
+		}
+		catch
+		{
+			return "";
+		}
+	}
+
+	// Evento mejorado para búsqueda
+	private async Task OnSearchChanged()
+	{
+		if (!_disposed && table != null)
+		{
+			await table.ReloadServerData();
+		}
+	}
+
+	private async Task OnSearchKeyUp(KeyboardEventArgs e)
+	{
+		if (e.Key == "Enter" && !_disposed && table != null)
+		{
+			await table.ReloadServerData();
+		}
+	}
+
+	private async Task OnBuscarClick()
+	{
+		if (!_disposed && table != null)
+		{
+			await table.ReloadServerData();
+		}
+	}
+
+	private async Task CambiarVistaPersonas()
+	{
+		mostrarInactivos = !mostrarInactivos;
+		if (!_disposed && table != null)
+		{
+			await table.ReloadServerData();
+		}
+	}
+
+	private async Task LimpiarFiltros()
+	{
+		searchString = "";
+		filtroRol = null;
+		filtroSucursal = null;
+		filtroGenero = null;
+		filtroEstadoCivil = null;
+
+		if (!_disposed && table != null)
+		{
+			await table.ReloadServerData();
+		}
+	}
+
+	private void VerDetalles(Persona persona)
+	{
+		if (!_disposed)
+		{
+			NavigationManager.NavigateTo($"/personas/detalles/{persona.IdPersona}");
+		}
+	}
+
+	private void EditarPersona(Persona persona)
+	{
+		if (!_disposed)
+		{
+			NavigationManager.NavigateTo($"/personas/editar/{persona.IdPersona}");
+		}
+	}
+
+	private async Task DesactivarPersona(Persona persona)
+	{
+		if (_disposed) return;
+
+		bool? result = await DialogService.ShowMessageBox(
+			"Confirmar desactivación",
+			$"¿Está seguro que desea desactivar a {persona.Nombre} {persona.Apellido}?",
+			yesText: "Desactivar",
+			noText: "Cancelar",
+			options: new DialogOptions() { MaxWidth = MaxWidth.Small });
+
+		if (result == true && !_disposed)
+		{
+			try
+			{
+				persona.Activo = false;
+				bool actualizado = await PersonaService.UpdateAsync(persona);
+
+				if (actualizado && !_disposed)
+				{
+					await MostrarExito($"Persona {persona.Nombre} {persona.Apellido} desactivada exitosamente");
+					if (table != null)
+					{
+						await table.ReloadServerData();
+					}
+				}
+				else if (!_disposed)
+				{
+					await MostrarError("No se pudo desactivar la persona");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error en DesactivarPersona: {ex}");
+				if (!_disposed)
+				{
+					await MostrarError($"Error al desactivar la persona: {ex.Message}");
+				}
+			}
+		}
+	}
+
+	private async Task ActivarPersona(Persona persona)
+	{
+		if (_disposed) return;
+
+		try
+		{
+			persona.Activo = true;
+			bool actualizado = await PersonaService.UpdateAsync(persona);
+
+			if (actualizado && !_disposed)
+			{
+				await MostrarExito($"Persona {persona.Nombre} {persona.Apellido} activada exitosamente");
+				if (table != null)
+				{
+					await table.ReloadServerData();
+				}
+			}
+			else if (!_disposed)
+			{
+				await MostrarError("No se pudo activar la persona");
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error en ActivarPersona: {ex}");
+			if (!_disposed)
+			{
+				await MostrarError($"Error al activar la persona: {ex.Message}");
+			}
+		}
+	}
+
+	private async Task EliminarPersona(Persona persona)
+	{
+		if (_disposed) return;
+
+		bool? result = await DialogService.ShowMessageBox(
+			"⚠️ Confirmar eliminación",
+			$"¿Está seguro que desea eliminar permanentemente a {persona.Nombre} {persona.Apellido}?\n\nEsta acción NO se puede deshacer y eliminará todos los datos relacionados con esta persona.",
+			yesText: "Eliminar",
+			noText: "Cancelar",
+			options: new DialogOptions() { MaxWidth = MaxWidth.Small });
+
+		if (result == true && !_disposed)
+		{
+			try
+			{
+				bool eliminado = await PersonaService.DeleteAsync(persona.IdPersona);
+
+				if (eliminado && !_disposed)
+				{
+					await MostrarExito($"Persona {persona.Nombre} {persona.Apellido} eliminada exitosamente");
+					if (table != null)
+					{
+						await table.ReloadServerData();
+					}
+				}
+				else if (!_disposed)
+				{
+					await MostrarError("No se pudo eliminar la persona");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error en EliminarPersona: {ex}");
+				if (!_disposed)
+				{
+					await MostrarError($"Error al eliminar la persona: {ex.Message}");
+				}
+			}
+		}
+	}
+
+	private async Task CargarDatosIniciales()
+	{
+		if (_disposed) return;
+
+		try
+		{
+			loading = true;
+			StateHasChanged();
+
+			var tasks = new List<Task>
+			{
+				CargarRoles(),
+				CargarSucursales(),
+				CargarGeneros(),
+				CargarEstadosCiviles()
+			};
+
+			await Task.WhenAll(tasks);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error en CargarDatosIniciales: {ex}");
+			if (!_disposed)
+			{
+				await MostrarError($"Error al cargar datos iniciales: {ex.Message}");
+			}
+		}
+		finally
+		{
+			if (!_disposed)
+			{
+				loading = false;
+				StateHasChanged();
+			}
+		}
+	}
+
+	private async Task CargarRoles()
+	{
+		try
+		{
+			roles = await PersonaService.GetRolesAsync() ?? new List<Rol>();
+			Console.WriteLine($"Roles cargados: {roles.Count}");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando roles: {ex.Message}");
+			roles = new List<Rol>();
+		}
+	}
+
+	private async Task CargarSucursales()
+	{
+		try
+		{
+			sucursales = await PersonaService.GetSucursalesAsync() ?? new List<Sucursal>();
+			Console.WriteLine($"Sucursales cargadas: {sucursales.Count}");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando sucursales: {ex.Message}");
+			sucursales = new List<Sucursal>();
+		}
+	}
+
+	private async Task CargarGeneros()
+	{
+		try
+		{
+			generos = await PersonaService.GetGenerosAsync() ?? new List<Genero>();
+			Console.WriteLine($"Géneros cargados: {generos.Count}");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando géneros: {ex.Message}");
+			generos = new List<Genero>();
+		}
+	}
+
+	private async Task CargarEstadosCiviles()
+	{
+		try
+		{
+			estadosCiviles = await PersonaService.GetEstadosCivilesAsync() ?? new List<EstadoCivil>();
+			Console.WriteLine($"Estados civiles cargados: {estadosCiviles.Count}");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando estados civiles: {ex.Message}");
+			estadosCiviles = new List<EstadoCivil>();
+		}
+	}
+
+	private async Task<TableData<Persona>> LoadServerData(TableState state, CancellationToken cancellationToken)
+	{
+		// Verificar si el componente fue disposed
+		if (_disposed || _cancellationTokenSource?.Token.IsCancellationRequested == true)
+		{
+			return new TableData<Persona> { Items = new List<Persona>(), TotalItems = 0 };
+		}
+
+		// Prevenir múltiples llamadas concurrentes usando semáforo
+		if (_isLoadingData)
+		{
+			Console.WriteLine("LoadServerData ya está ejecutándose, devolviendo datos actuales");
+			return currentTableData;
+		}
+
+		// Intentar adquirir el semáforo con timeout
+		if (!await _loadingSemaphore.WaitAsync(100, cancellationToken))
+		{
+			Console.WriteLine("No se pudo adquirir el semáforo, devolviendo datos actuales");
+			return currentTableData;
+		}
+
+		try
+		{
+			_isLoadingData = true;
+			loading = true;
+
+			// StateHasChanged solo si no estamos disposed
+			if (!_disposed)
+			{
+				await InvokeAsync(StateHasChanged);
+			}
+
+			// Logs para debugging
+			Console.WriteLine($"LoadServerData - Page: {state.Page + 1}, PageSize: {state.PageSize}");
+			Console.WriteLine($"Filtros - Search: '{searchString?.Trim()}', Rol: {filtroRol}, Sucursal: {filtroSucursal}, Mostrar Inactivos: {mostrarInactivos}");
+
+			// Determinar orden
+			bool ascending = state.SortDirection != SortDirection.Descending;
+			string sortLabel = state.SortLabel ?? "Nombre";
+
+			Console.WriteLine($"Orden: {sortLabel} {(ascending ? "ASC" : "DESC")}");
+
+			// Verificar que el servicio esté disponible
+			if (PersonaService == null)
+			{
+				Console.WriteLine("PersonaService es null");
+				return new TableData<Persona> { Items = new List<Persona>(), TotalItems = 0 };
+			}
+
+			// Crear token combinado con timeout
+			using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+			using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(
+				cancellationToken,
+				_cancellationTokenSource?.Token ?? CancellationToken.None,
+				timeoutCts.Token);
+
+			// Validar parámetros
+			var pageNumber = Math.Max(1, state.Page + 1);
+			var pageSize = Math.Max(1, Math.Min(1000, state.PageSize));
+
+			Console.WriteLine($"Llamando a PersonaService.GetPaginatedAsync...");
+
+			// Llamada al servicio con validación de parámetros
+			var (personas, totalCount) = await PersonaService.GetPaginatedAsync(
+				pageNumber,
+				pageSize,
+				searchString?.Trim(),
+				ascending,
+				sortLabel,
+				mostrarInactivos,
+				filtroRol,
+				filtroSucursal,
+				filtroGenero,
+				filtroEstadoCivil
+			);
+
+			Console.WriteLine($"PersonaService.GetPaginatedAsync completado");
+
+			// Verificar si fue cancelado
+			if (combinedCts.Token.IsCancellationRequested || _disposed)
+			{
+				Console.WriteLine("Operación cancelada durante la ejecución");
+				return currentTableData;
+			}
+
+			// Validar los datos recibidos
+			if (personas == null)
+			{
+				Console.WriteLine("PersonaService devolvió null");
+				personas = new List<Persona>();
+			}
+
+			// Logs de resultados
+			Console.WriteLine($"Datos recibidos - Personas: {personas.Count}, Total: {totalCount}");
+
+			if (personas.Any())
+			{
+				Console.WriteLine("Primeras 3 personas:");
+				foreach (var p in personas.Take(3))
+				{
+					Console.WriteLine($"  - ID: {p?.IdPersona}, Nombre: {p?.Nombre} {p?.Apellido}, Email: {p?.Email}, Activo: {p?.Activo}");
+				}
+			}
+
+			var tableData = new TableData<Persona>
+			{
+				Items = personas,
+				TotalItems = Math.Max(0, totalCount)
+			};
+
+			// Guardar referencia para las cards móviles
+			currentTableData = tableData;
+
+			return tableData;
+		}
+		catch (OperationCanceledException)
+		{
+			Console.WriteLine("Operación cancelada - LoadServerData");
+			return currentTableData;
+		}
+		catch (ObjectDisposedException ex)
+		{
+			Console.WriteLine($"Objeto disposed en LoadServerData: {ex.Message}");
+			return currentTableData;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"ERROR en LoadServerData: {ex}");
+			Console.WriteLine($"StackTrace: {ex.StackTrace}");
+
+			// Solo mostrar error si el componente no está disposed
+			if (!cancellationToken.IsCancellationRequested && !_disposed)
+			{
+				try
+				{
+					await InvokeAsync(async () => await MostrarError($"Error al cargar personas: {ex.Message}"));
+				}
+				catch (Exception innerEx)
+				{
+					Console.WriteLine($"Error al mostrar mensaje de error: {innerEx.Message}");
+				}
+			}
+
+			return new TableData<Persona>
+			{
+				Items = new List<Persona>(),
+				TotalItems = 0
+			};
+		}
+		finally
+		{
+			_isLoadingData = false;
+			_loadingSemaphore.Release();
+
+			if (!_disposed)
+			{
+				loading = false;
+				try
+				{
+					await InvokeAsync(StateHasChanged);
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine($"Error en StateHasChanged final: {ex.Message}");
+				}
+			}
+		}
+	}
+
+	// Métodos auxiliares para mensajes con manejo de errores
+	private async Task MostrarExito(string mensaje)
+	{
+		try
+		{
+			if (!_disposed)
+			{
+				await InvokeAsync(() => Snackbar.Add(mensaje, Severity.Success));
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error en MostrarExito: {ex.Message}");
+		}
+	}
+
+	private async Task MostrarError(string mensaje)
+	{
+		try
+		{
+			if (!_disposed)
+			{
+				await InvokeAsync(() => Snackbar.Add(mensaje, Severity.Error));
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error en MostrarError: {ex.Message}");
+		}
+	}
+
+	// Implementar IDisposable
+	public void Dispose()
+	{
+		if (!_disposed)
+		{
+			_disposed = true;
+			_cancellationTokenSource?.Cancel();
+			_cancellationTokenSource?.Dispose();
+			_loadingSemaphore?.Dispose();
+		}
+	}
+}

@@ -1,0 +1,941 @@
+﻿@page "/personas/crear"
+@page "/personas/editar/{IdPersona:int}"
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.PersonaServices
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Web
+@inject IPersonaService PersonaService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+	<MudPaper Elevation="3" Class="pa-6">
+		<MudGrid>
+			<!-- Header Section -->
+			<MudItem xs="12" Class="mb-4">
+				<div class="d-flex align-center mb-4">
+					<MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+								   Color="Color.Primary"
+								   OnClick="@(() => NavigationManager.NavigateTo("/personas"))"
+								   Class="mr-3" />
+					<MudText Typo="Typo.h4" Class="d-flex align-center">
+						<MudIcon Icon="@(EsEdicion? Icons.Material.Filled.Edit : Icons.Material.Filled.PersonAdd)"
+								 Class="mr-3" Size="Size.Large" />
+						@(EsEdicion ? "Editar Persona" : "Nueva Persona")
+					</MudText>
+				</div>
+				@if (EsEdicion)
+				{
+					<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info" Class="mb-4">
+						<MudText>
+							Editando persona: <strong>@($"{persona.Nombre} {persona.Apellido}")</strong>
+							@if (persona.FechaCreacion.HasValue)
+							{
+								<span> - Registrada el @persona.FechaCreacion.Value.ToString("dd/MM/yyyy")</span>
+							}
+						</MudText>
+					</MudAlert>
+				}
+			</MudItem>
+
+			<!-- Loading Overlay -->
+			@if (loading)
+			{
+				<MudItem xs="12">
+					<div class="loading-overlay">
+						<MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+						<MudText Class="mt-3" Typo="Typo.h6" Color="Color.Primary">
+							@(EsEdicion ? "Cargando datos de la persona..." : "Guardando persona...")
+						</MudText>
+					</div>
+				</MudItem>
+			}
+
+			<!-- Form Section -->
+			<MudItem xs="12">
+				<EditForm Model="@persona" OnValidSubmit="@GuardarPersona">
+					<DataAnnotationsValidator />
+					<MudGrid>
+						<!-- Información Personal -->
+						<MudItem xs="12">
+							<MudExpansionPanels Elevation="2" Class="mb-4">
+								<MudExpansionPanel Icon="@Icons.Material.Filled.Person" Text="Información Personal" IsInitiallyExpanded="true">
+									<MudGrid>
+										<MudItem xs="12" sm="6">
+											<MudTextField @bind-Value="persona.Nombre"
+														  Label="Nombre *"
+														  Required="true"
+														  RequiredError="El nombre es requerido"
+														  MaxLength="50"
+														  Counter="50"
+														  Immediate="true"
+														  Validation="@(new Func<string, IEnumerable<string>>(ValidarNombre))"
+														  Adornment="Adornment.Start"
+														  AdornmentIcon="@Icons.Material.Filled.Person"
+														  Class="form-field" />
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudTextField @bind-Value="persona.Apellido"
+														  Label="Apellido *"
+														  Required="true"
+														  RequiredError="El apellido es requerido"
+														  MaxLength="50"
+														  Counter="50"
+														  Immediate="true"
+														  Validation="@(new Func<string, IEnumerable<string>>(ValidarApellido))"
+														  Adornment="Adornment.Start"
+														  AdornmentIcon="@Icons.Material.Filled.Person"
+														  Class="form-field" />
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudTextField @bind-Value="dpiString"
+														  Label="DPI"
+														  MaxLength="13"
+														  Counter="13"
+														  Immediate="true"
+														  Validation="@(new Func<string, IEnumerable<string>>(ValidarDpi))"
+														  Adornment="Adornment.Start"
+														  AdornmentIcon="@Icons.Material.Filled.CreditCard"
+														  Class="form-field"
+														  HelperText="Ingrese 13 dígitos sin espacios ni guiones" />
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudTextField @bind-Value="nitString"
+														  Label="NIT"
+														  MaxLength="11"
+														  Counter="11"
+														  Immediate="true"
+														  Validation="@(new Func<string, IEnumerable<string>>(ValidarNit))"
+														  Adornment="Adornment.Start"
+														  AdornmentIcon="@Icons.Material.Filled.Receipt"
+														  Class="form-field"
+														  HelperText="Ingrese entre 7 y 11 dígitos" />
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudDatePicker @bind-Date="fechaNacimiento"
+														   Label="Fecha de Nacimiento"
+														   MaxDate="DateTime.Today.AddYears(-18)"
+														   MinDate="DateTime.Today.AddYears(-100)"
+														   DateFormat="dd/MM/yyyy"
+														   Editable="true"
+														   Placeholder="dd/mm/aaaa"
+														   Class="form-field"
+														   HelperText="Debe ser mayor de 18 años" />
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudTextField @bind-Value="persona.Email"
+														  Label="Email *"
+														  Required="true"
+														  RequiredError="El email es requerido"
+														  InputType="InputType.Email"
+														  MaxLength="100"
+														  Counter="100"
+														  Immediate="true"
+														  Validation="@(new Func<string, IEnumerable<string>>(ValidarEmail))"
+														  Adornment="Adornment.Start"
+														  AdornmentIcon="@Icons.Material.Filled.Email"
+														  Class="form-field" />
+										</MudItem>
+									</MudGrid>
+								</MudExpansionPanel>
+							</MudExpansionPanels>
+						</MudItem>
+
+						<!-- Información de Clasificación -->
+						<MudItem xs="12">
+							<MudExpansionPanels Elevation="2" Class="mb-4">
+								<MudExpansionPanel Icon="@Icons.Material.Filled.Category" Text="Información de Clasificación" IsInitiallyExpanded="true">
+									<MudGrid>
+										<MudItem xs="12" sm="6" md="3">
+											<MudSelect @bind-Value="persona.IdGenero"
+													   Label="Género *"
+													   Required="true"
+													   RequiredError="Seleccione un género"
+													   Adornment="Adornment.Start"
+													   AdornmentIcon="@Icons.Material.Filled.People"
+													   Class="form-field">
+												<MudSelectItem Value="@((int?)null)">Seleccionar...</MudSelectItem>
+												@if (generos?.Any() == true)
+												{
+													@foreach (var genero in generos)
+													{
+														<MudSelectItem Value="@((int?)genero.IdGenero)">@genero.Ngenero</MudSelectItem>
+													}
+												}
+											</MudSelect>
+										</MudItem>
+										<MudItem xs="12" sm="6" md="3">
+											<MudSelect @bind-Value="persona.IdEstadoCivil"
+													   Label="Estado Civil *"
+													   Required="true"
+													   RequiredError="Seleccione un estado civil"
+													   Adornment="Adornment.Start"
+													   AdornmentIcon="@Icons.Material.Filled.Favorite"
+													   Class="form-field">
+												<MudSelectItem Value="@((int?)null)">Seleccionar...</MudSelectItem>
+												@if (estadosCiviles?.Any() == true)
+												{
+													@foreach (var estado in estadosCiviles)
+													{
+														<MudSelectItem Value="@((int?)estado.IdEstadoCivil)">@estado.EstadoCivil1</MudSelectItem>
+													}
+												}
+											</MudSelect>
+										</MudItem>
+										<MudItem xs="12" sm="6" md="3">
+											<MudSelect @bind-Value="persona.IdRool"
+													   Label="Rol *"
+													   Required="true"
+													   RequiredError="Seleccione un rol"
+													   Adornment="Adornment.Start"
+													   AdornmentIcon="@Icons.Material.Filled.Work"
+													   Class="form-field">
+												<MudSelectItem Value="@((int?)null)">Seleccionar...</MudSelectItem>
+												@if (roles?.Any() == true)
+												{
+													@foreach (var rol in roles)
+													{
+														<MudSelectItem Value="@((int?)rol.IdRol)">@rol.TipoRol</MudSelectItem>
+													}
+												}
+											</MudSelect>
+										</MudItem>
+										<MudItem xs="12" sm="6" md="3">
+											<MudSelect @bind-Value="persona.IdSucursal"
+													   Label="Sucursal"
+													   Adornment="Adornment.Start"
+													   AdornmentIcon="@Icons.Material.Filled.Business"
+													   Class="form-field">
+												<MudSelectItem Value="@((int?)null)">Sin asignar</MudSelectItem>
+												@if (sucursales?.Any() == true)
+												{
+													@foreach (var sucursal in sucursales)
+													{
+														<MudSelectItem Value="@((int?)sucursal.IdSucursal)">@sucursal.NombreSucursal</MudSelectItem>
+													}
+												}
+											</MudSelect>
+										</MudItem>
+									</MudGrid>
+								</MudExpansionPanel>
+							</MudExpansionPanels>
+						</MudItem>
+
+						<!-- Información de Contacto -->
+						<MudItem xs="12">
+							<MudExpansionPanels Elevation="2" Class="mb-4">
+								<MudExpansionPanel Icon="@Icons.Material.Filled.ContactPhone" Text="Información de Contacto">
+									<MudGrid>
+										<MudItem xs="12" sm="6">
+											<MudTextField @bind-Value="telefonoString"
+														  Label="Teléfono"
+														  MaxLength="8"
+														  Counter="8"
+														  Immediate="true"
+														  Validation="@(new Func<string, IEnumerable<string>>(ValidarTelefono))"
+														  Adornment="Adornment.Start"
+														  AdornmentIcon="@Icons.Material.Filled.Phone"
+														  Class="form-field"
+														  HelperText="Ingrese 8 dígitos (ej: 12345678)" />
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<!-- Aquí podrías agregar campos de dirección si los tienes -->
+											<MudTextField Value="@("Dirección (pendiente de implementar)")"
+														  Label="Dirección"
+														  Disabled="true"
+														  Adornment="Adornment.Start"
+														  AdornmentIcon="@Icons.Material.Filled.LocationOn"
+														  Class="form-field"
+														  HelperText="Funcionalidad por implementar" />
+										</MudItem>
+									</MudGrid>
+								</MudExpansionPanel>
+							</MudExpansionPanels>
+						</MudItem>
+
+						<!-- Información Laboral -->
+						<MudItem xs="12">
+							<MudExpansionPanels Elevation="2" Class="mb-4">
+								<MudExpansionPanel Icon="@Icons.Material.Filled.Work" Text="Información Laboral">
+									<MudGrid>
+										<MudItem xs="12" sm="6">
+											<MudNumericField @bind-Value="salarioDouble"
+															 Label="Salario"
+															 Min="0"
+															 Max="999999"
+															 Step="100"
+															 Adornment="Adornment.Start"
+															 AdornmentIcon="@Icons.Material.Filled.AttachMoney"
+															 Class="form-field"
+															 HelperText="Salario en Quetzales (GTQ)" />
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudSwitch @bind-Value="persona.Activo"
+													   Label="Estado Activo"
+													   Color="Color.Success"
+													   Class="form-field mt-4" />
+										</MudItem>
+									</MudGrid>
+								</MudExpansionPanel>
+							</MudExpansionPanels>
+						</MudItem>
+
+						<!-- Seguridad (solo para creación) -->
+						@if (!EsEdicion)
+						{
+							<MudItem xs="12">
+								<MudExpansionPanels Elevation="2" Class="mb-4">
+									<MudExpansionPanel Icon="@Icons.Material.Filled.Security" Text="Información de Seguridad">
+										<MudGrid>
+											<MudItem xs="12" sm="6">
+												<MudTextField @bind-Value="persona.Contraseña"
+															  Label="Contraseña *"
+															  InputType="@passwordInputType"
+															  Required="true"
+															  RequiredError="La contraseña es requerida"
+															  MinLength="6"
+															  MaxLength="50"
+															  Counter="50"
+															  Immediate="true"
+															  Validation="@(new Func<string, IEnumerable<string>>(ValidarContraseña))"
+															  Adornment="Adornment.End"
+															  AdornmentIcon="@passwordIcon"
+															  OnAdornmentClick="@TogglePasswordVisibility"
+															  AdornmentAriaLabel="Mostrar contraseña"
+															  Class="form-field"
+															  HelperText="Mínimo 6 caracteres, incluir mayúsculas, minúsculas y números" />
+											</MudItem>
+											<MudItem xs="12" sm="6">
+												<MudTextField @bind-Value="confirmarContraseña"
+															  Label="Confirmar Contraseña *"
+															  InputType="@passwordInputType"
+															  Required="true"
+															  RequiredError="Confirme la contraseña"
+															  Immediate="true"
+															  Validation="@(new Func<string, IEnumerable<string>>(ValidarConfirmarContraseña))"
+															  Adornment="Adornment.End"
+															  AdornmentIcon="@passwordIcon"
+															  OnAdornmentClick="@TogglePasswordVisibility"
+															  AdornmentAriaLabel="Mostrar contraseña"
+															  Class="form-field" />
+											</MudItem>
+										</MudGrid>
+									</MudExpansionPanel>
+								</MudExpansionPanels>
+							</MudItem>
+						}
+
+						<!-- Validation Summary -->
+						<MudItem xs="12">
+							<ValidationSummary class="validation-summary" />
+						</MudItem>
+
+						<!-- Action Buttons -->
+						<MudItem xs="12" Class="d-flex justify-end gap-3 mt-4">
+							<MudButton Variant="Variant.Outlined"
+									   Color="Color.Secondary"
+									   StartIcon="@Icons.Material.Filled.Cancel"
+									   OnClick="@CancelarOperacion"
+									   Class="cancel-button">
+								Cancelar
+							</MudButton>
+							<MudButton ButtonType="ButtonType.Submit"
+									   Variant="Variant.Filled"
+									   Color="Color.Primary"
+									   StartIcon="@(EsEdicion ? Icons.Material.Filled.Save : Icons.Material.Filled.PersonAdd)"
+									   Disabled="@loading"
+									   Class="save-button">
+								@if (loading)
+								{
+									<MudProgressCircular Size="Size.Small" Indeterminate="true" />
+									<span class="ml-2">@(EsEdicion ? "Actualizando..." : "Guardando...")</span>
+								}
+								else
+								{
+									<span>@(EsEdicion ? "Actualizar Persona" : "Crear Persona")</span>
+								}
+							</MudButton>
+						</MudItem>
+					</MudGrid>
+				</EditForm>
+			</MudItem>
+		</MudGrid>
+	</MudPaper>
+</MudContainer>
+
+<style>
+	/* Form Styling */
+	.form-field {
+		margin-bottom: 16px;
+	}
+
+	.loading-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(255, 255, 255, 0.8);
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		z-index: 9999;
+	}
+
+	/* Button Styling */
+	.save-button {
+		min-width: 180px;
+	}
+
+	.cancel-button {
+		min-width: 120px;
+	}
+
+	/* Validation Summary */
+	.validation-summary {
+		background-color: #fee;
+		border: 1px solid #fcc;
+		border-radius: 4px;
+		padding: 16px;
+		margin: 16px 0;
+		color: #c33;
+	}
+
+		.validation-summary ul {
+			margin: 0;
+			padding-left: 20px;
+		}
+
+		.validation-summary li {
+			margin: 4px 0;
+		}
+
+	/* Responsive Design */
+	@@media (max-width: 768px) {
+		.save-button, .cancel-button {
+			width: 100%;
+			margin-bottom: 8px;
+		}
+
+		.d-flex.justify-end.gap-3 {
+			flex-direction: column-reverse;
+		}
+	}
+
+	/* Expansion Panel Styling */
+	.mud-expand-panel-header {
+		background-color: #f8f9fa;
+		border-bottom: 1px solid #dee2e6;
+	}
+
+	.mud-expand-panel-content {
+		padding: 24px;
+	}
+
+	/* Alert Styling */
+	.mud-alert {
+		border-radius: 8px;
+	}
+
+	/* Input Field Focus */
+	.mud-input-control:focus-within {
+		transform: translateY(-1px);
+		transition: transform 0.2s ease;
+	}
+</style>
+
+@code {
+	[Parameter] public int? IdPersona { get; set; }
+
+	private Persona persona = new();
+	private List<Rol> roles = new();
+	private List<Sucursal> sucursales = new();
+	private List<Genero> generos = new();
+	private List<EstadoCivil> estadosCiviles = new();
+
+	// Campos auxiliares para validación y conversión
+	private string dpiString = "";
+	private string nitString = "";
+	private string telefonoString = "";
+	private string confirmarContraseña = "";
+	private DateTime? fechaNacimiento;
+	private double? salarioDouble;
+
+	// UI State
+	private bool loading = false;
+	private bool EsEdicion => IdPersona.HasValue && IdPersona > 0;
+
+	// Password visibility
+	private bool showPassword = false;
+	private InputType passwordInputType = InputType.Password;
+	private string passwordIcon = Icons.Material.Filled.VisibilityOff;
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			loading = true;
+			StateHasChanged();
+
+			// Cargar datos de referencia
+			await CargarDatosReferencia();
+
+			// Si es edición, cargar los datos de la persona
+			if (EsEdicion)
+			{
+				await CargarPersona();
+			}
+			else
+			{
+				InicializarNuevaPersona();
+			}
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al cargar los datos: {ex.Message}", Severity.Error);
+			NavigationManager.NavigateTo("/personas");
+		}
+		finally
+		{
+			loading = false;
+		}
+	}
+
+	private async Task CargarDatosReferencia()
+	{
+		var tasks = new List<Task>
+		{
+			CargarRoles(),
+			CargarSucursales(),
+			CargarGeneros(),
+			CargarEstadosCiviles()
+		};
+
+		await Task.WhenAll(tasks);
+	}
+
+	private async Task CargarRoles()
+	{
+		try
+		{
+			roles = await PersonaService.GetRolesAsync() ?? new List<Rol>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando roles: {ex.Message}");
+			roles = new List<Rol>();
+		}
+	}
+
+	private async Task CargarSucursales()
+	{
+		try
+		{
+			sucursales = await PersonaService.GetSucursalesAsync() ?? new List<Sucursal>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando sucursales: {ex.Message}");
+			sucursales = new List<Sucursal>();
+			// Si hay error cargando sucursales, mostrar un mensaje pero permitir continuar
+			Snackbar.Add("No se pudieron cargar las sucursales. Puede continuar sin asignar sucursal.", Severity.Warning);
+		}
+	}
+
+	private async Task CargarGeneros()
+	{
+		try
+		{
+			generos = await PersonaService.GetGenerosAsync() ?? new List<Genero>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando géneros: {ex.Message}");
+			generos = new List<Genero>();
+		}
+	}
+
+	private async Task CargarEstadosCiviles()
+	{
+		try
+		{
+			estadosCiviles = await PersonaService.GetEstadosCivilesAsync() ?? new List<EstadoCivil>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando estados civiles: {ex.Message}");
+			estadosCiviles = new List<EstadoCivil>();
+		}
+	}
+
+	private async Task CargarPersona()
+	{
+		if (!IdPersona.HasValue) return;
+
+		try
+		{
+			var personaEncontrada = await PersonaService.GetByIdAsync(IdPersona.Value);
+			if (personaEncontrada == null)
+			{
+				Snackbar.Add("Persona no encontrada", Severity.Error);
+				NavigationManager.NavigateTo("/personas");
+				return;
+			}
+
+			persona = personaEncontrada;
+
+			// Convertir valores para los campos de texto
+			dpiString = persona.Dpi?.ToString() ?? "";
+			nitString = persona.Nit?.ToString() ?? "";
+			salarioDouble = persona.Salario;
+
+			// Cargar teléfono si existe
+			if (persona.IdTelefonoNavigation?.NumeroTelefonico.HasValue == true)
+			{
+				telefonoString = persona.IdTelefonoNavigation.NumeroTelefonico.ToString();
+			}
+
+			// Convertir fecha de nacimiento
+			if (persona.FechaNacimiento.HasValue)
+			{
+				fechaNacimiento = persona.FechaNacimiento.Value.ToDateTime(TimeOnly.MinValue);
+			}
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al cargar la persona: {ex.Message}", Severity.Error);
+			NavigationManager.NavigateTo("/personas");
+		}
+	}
+
+	private void InicializarNuevaPersona()
+	{
+		persona = new Persona
+		{
+			Activo = true
+		};
+	}
+
+	private async Task GuardarPersona()
+	{
+		try
+		{
+			loading = true;
+			StateHasChanged();
+
+			// Validaciones adicionales
+			if (!await ValidarFormulario()) return;
+
+			// Convertir campos de texto a números
+			ConvertirCamposNumericos();
+
+			// Convertir fecha de nacimiento
+			if (fechaNacimiento.HasValue)
+			{
+				persona.FechaNacimiento = DateOnly.FromDateTime(fechaNacimiento.Value);
+			}
+
+			// Manejar teléfono
+			await ManejarTelefono();
+
+			bool resultado;
+			if (EsEdicion)
+			{
+				resultado = await PersonaService.UpdateAsync(persona);
+			}
+			else
+			{
+				resultado = await PersonaService.AddAsync(persona);
+			}
+
+			if (resultado)
+			{
+				var mensaje = EsEdicion ? "Persona actualizada exitosamente" : "Persona creada exitosamente";
+				Snackbar.Add(mensaje, Severity.Success);
+				NavigationManager.NavigateTo("/personas");
+			}
+			else
+			{
+				var mensajeError = EsEdicion ? "No se pudo actualizar la persona" : "No se pudo crear la persona";
+				Snackbar.Add(mensajeError, Severity.Error);
+			}
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Error al guardar: {ex.Message}", Severity.Error);
+		}
+		finally
+		{
+			loading = false;
+		}
+	}
+
+	private async Task<bool> ValidarFormulario()
+	{
+		// Validar email único
+		if (!string.IsNullOrEmpty(persona.Email))
+		{
+			bool emailExiste;
+			if (EsEdicion)
+			{
+				emailExiste = await PersonaService.ExistsByEmailExcludingIdAsync(persona.Email, persona.IdPersona);
+			}
+			else
+			{
+				emailExiste = await PersonaService.ExistsByEmailAsync(persona.Email);
+			}
+
+			if (emailExiste)
+			{
+				Snackbar.Add("Ya existe una persona con este email", Severity.Error);
+				return false;
+			}
+		}
+
+		// Validar DPI único
+		if (!string.IsNullOrEmpty(dpiString) && long.TryParse(dpiString, out var dpi))
+		{
+			bool dpiExiste;
+			if (EsEdicion)
+			{
+				dpiExiste = await PersonaService.ExistsByDpiExcludingIdAsync((int)dpi, persona.IdPersona);
+			}
+			else
+			{
+				dpiExiste = await PersonaService.ExistsByDpiAsync((int)dpi);
+			}
+
+			if (dpiExiste)
+			{
+				Snackbar.Add("Ya existe una persona con este DPI", Severity.Error);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private void ConvertirCamposNumericos()
+	{
+		// Convertir DPI
+		if (!string.IsNullOrEmpty(dpiString) && long.TryParse(dpiString, out var dpi))
+		{
+			persona.Dpi = (int)dpi;
+		}
+		else
+		{
+			persona.Dpi = null;
+		}
+
+		// Convertir NIT
+		if (!string.IsNullOrEmpty(nitString) && long.TryParse(nitString, out var nit))
+		{
+			persona.Nit = (int)nit;
+		}
+		else
+		{
+			persona.Nit = null;
+		}
+
+		// Convertir Salario
+		persona.Salario = salarioDouble;
+	}
+
+	private async Task ManejarTelefono()
+	{
+		// Nota: Esta es una implementación simplificada
+		// En un sistema real, deberías manejar la creación/actualización de teléfonos por separado
+		if (!string.IsNullOrEmpty(telefonoString) && int.TryParse(telefonoString, out var numeroTelefono))
+		{
+			// Aquí podrías implementar la lógica para crear/actualizar el teléfono
+			// Por ahora, asumimos que ya tienes un IdTelefono válido
+		}
+	}
+
+	private async Task CancelarOperacion()
+	{
+		bool? result = await DialogService.ShowMessageBox(
+			"Confirmar cancelación",
+			"¿Está seguro que desea cancelar? Se perderán todos los cambios no guardados.",
+			yesText: "Sí, cancelar",
+			noText: "Continuar editando");
+
+		if (result ?? false)
+		{
+			NavigationManager.NavigateTo("/personas");
+		}
+	}
+
+	private void TogglePasswordVisibility()
+	{
+		showPassword = !showPassword;
+		passwordInputType = showPassword ? InputType.Text : InputType.Password;
+		passwordIcon = showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
+	}
+
+	#region Validaciones
+
+	private IEnumerable<string> ValidarNombre(string nombre)
+	{
+		if (string.IsNullOrWhiteSpace(nombre))
+		{
+			yield return "El nombre es requerido";
+		}
+		else if (nombre.Length < 2)
+		{
+			yield return "El nombre debe tener al menos 2 caracteres";
+		}
+		else if (nombre.Length > 50)
+		{
+			yield return "El nombre no puede exceder 50 caracteres";
+		}
+		else if (!System.Text.RegularExpressions.Regex.IsMatch(nombre, @"^[a-zA-ZÀ-ÿ\s]+$"))
+		{
+			yield return "El nombre solo puede contener letras y espacios";
+		}
+	}
+
+	private IEnumerable<string> ValidarApellido(string apellido)
+	{
+		if (string.IsNullOrWhiteSpace(apellido))
+		{
+			yield return "El apellido es requerido";
+		}
+		else if (apellido.Length < 2)
+		{
+			yield return "El apellido debe tener al menos 2 caracteres";
+		}
+		else if (apellido.Length > 50)
+		{
+			yield return "El apellido no puede exceder 50 caracteres";
+		}
+		else if (!System.Text.RegularExpressions.Regex.IsMatch(apellido, @"^[a-zA-ZÀ-ÿ\s]+$"))
+		{
+			yield return "El apellido solo puede contener letras y espacios";
+		}
+	}
+
+	private IEnumerable<string> ValidarEmail(string email)
+	{
+		if (string.IsNullOrWhiteSpace(email))
+		{
+			yield return "El email es requerido";
+		}
+		else if (email.Length > 100)
+		{
+			yield return "El email no puede exceder 100 caracteres";
+		}
+		else if (!System.Text.RegularExpressions.Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+		{
+			yield return "Formato de email inválido";
+		}
+	}
+
+	private IEnumerable<string> ValidarDpi(string dpi)
+	{
+		if (!string.IsNullOrEmpty(dpi))
+		{
+			if (!System.Text.RegularExpressions.Regex.IsMatch(dpi, @"^\d+$"))
+			{
+				yield return "El DPI solo puede contener números";
+			}
+			else if (dpi.Length != 13)
+			{
+				yield return "El DPI debe tener exactamente 13 dígitos";
+			}
+			else if (!long.TryParse(dpi, out _))
+			{
+				yield return "Formato de DPI inválido";
+			}
+		}
+	}
+
+	private IEnumerable<string> ValidarNit(string nit)
+	{
+		if (!string.IsNullOrEmpty(nit))
+		{
+			if (!System.Text.RegularExpressions.Regex.IsMatch(nit, @"^\d+$"))
+			{
+				yield return "El NIT solo puede contener números";
+			}
+			else if (nit.Length < 7 || nit.Length > 11)
+			{
+				yield return "El NIT debe tener entre 7 y 11 dígitos";
+			}
+			else if (!long.TryParse(nit, out _))
+			{
+				yield return "Formato de NIT inválido";
+			}
+		}
+	}
+
+	private IEnumerable<string> ValidarTelefono(string telefono)
+	{
+		if (!string.IsNullOrEmpty(telefono))
+		{
+			if (!System.Text.RegularExpressions.Regex.IsMatch(telefono, @"^\d+$"))
+			{
+				yield return "El teléfono solo puede contener números";
+			}
+			else if (telefono.Length != 8)
+			{
+				yield return "El teléfono debe tener exactamente 8 dígitos";
+			}
+			else if (!int.TryParse(telefono, out _))
+			{
+				yield return "Formato de teléfono inválido";
+			}
+		}
+	}
+
+	private IEnumerable<string> ValidarContraseña(string contraseña)
+	{
+		if (string.IsNullOrWhiteSpace(contraseña))
+		{
+			yield return "La contraseña es requerida";
+		}
+		else if (contraseña.Length < 6)
+		{
+			yield return "La contraseña debe tener al menos 6 caracteres";
+		}
+		else if (contraseña.Length > 50)
+		{
+			yield return "La contraseña no puede exceder 50 caracteres";
+		}
+		else
+		{
+			bool tieneMayuscula = System.Text.RegularExpressions.Regex.IsMatch(contraseña, @"[A-Z]");
+			bool tieneMinuscula = System.Text.RegularExpressions.Regex.IsMatch(contraseña, @"[a-z]");
+			bool tieneNumero = System.Text.RegularExpressions.Regex.IsMatch(contraseña, @"\d");
+
+			if (!tieneMayuscula)
+			{
+				yield return "La contraseña debe contener al menos una letra mayúscula";
+			}
+			if (!tieneMinuscula)
+			{
+				yield return "La contraseña debe contener al menos una letra minúscula";
+			}
+			if (!tieneNumero)
+			{
+				yield return "La contraseña debe contener al menos un número";
+			}
+		}
+	}
+
+	private IEnumerable<string> ValidarConfirmarContraseña(string confirmar)
+	{
+		if (string.IsNullOrWhiteSpace(confirmar))
+		{
+			yield return "Confirme la contraseña";
+		}
+		else if (confirmar != persona.Contraseña)
+		{
+			yield return "Las contraseñas no coinciden";
+		}
+	}
+
+	#endregion
+}
