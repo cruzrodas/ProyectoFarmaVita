@@ -7,8 +7,6 @@ public partial class Inventario
 {
     public int IdInventario { get; set; }
 
-    public int? IdProducto { get; set; }
-
     public string? NombreInventario { get; set; }
 
     public int? Cantidad { get; set; }
@@ -19,7 +17,7 @@ public partial class Inventario
 
     public DateTime? UltimaActualizacion { get; set; }
 
-    public virtual ICollection<Producto> Producto { get; set; } = new List<Producto>();
+    public virtual ICollection<InventarioProducto> InventarioProducto { get; set; } = new List<InventarioProducto>();
 
     public virtual ICollection<Sucursal> Sucursal { get; set; } = new List<Sucursal>();
 }

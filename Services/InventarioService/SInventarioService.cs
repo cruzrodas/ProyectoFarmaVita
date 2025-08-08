@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ProyectoFarmaVita.Models;
 
-namespace ProyectoFarmaVita.Services.InventarioServices
+namespace ProyectoFarmaVita.Services.InventarioService
 {
     public class SInventarioService : IInventarioService
     {
@@ -66,7 +66,7 @@ namespace ProyectoFarmaVita.Services.InventarioServices
         public async Task<List<Inventario>> GetAllAsync()
         {
             return await _farmaDbContext.Inventario
-                .Include(i => i.IdProductoNavigation)
+                .Include(i => i.IdProducto) // Corregido: usar la propiedad de navegación
                 .ToListAsync();
         }
 
@@ -75,7 +75,7 @@ namespace ProyectoFarmaVita.Services.InventarioServices
             try
             {
                 var result = await _farmaDbContext.Inventario
-                    .Include(i => i.IdProductoNavigation)
+                    .Include(i => i.IdProducto) // Corregido: usar la propiedad de navegación
                     .FirstOrDefaultAsync(i => i.IdInventario == id_inventario);
 
                 if (result == null)
@@ -95,15 +95,15 @@ namespace ProyectoFarmaVita.Services.InventarioServices
         public async Task<MPaginatedResult<Inventario>> GetPaginatedAsync(int pageNumber, int pageSize, string searchTerm = "", bool sortAscending = true)
         {
             var query = _farmaDbContext.Inventario
-                .Include(i => i.IdProductoNavigation)
+                .Include(i => i.IdProducto) // Corregido: usar la propiedad de navegación
                 .AsQueryable();
 
-            // Filtro por el término de búsqueda
-            if (!string.IsNullOrEmpty(searchTerm))
-            {
-                query = query.Where(i => i.NombreInventario.Contains(searchTerm) ||
-                                       (i.IdProductoNavigation != null && i.IdProductoNavigation.NombreProducto.Contains(searchTerm)));
-            }
+            //// Filtro por el término de búsqueda - CORREGIDO
+            //if (!string.IsNullOrEmpty(searchTerm))
+            //{
+            //    query = query.Where(i => i.NombreInventario.Contains(searchTerm) ||
+            //                           (i.Producto != null && i.Producto.NombreProducto.Contains(searchTerm)));
+            //}
 
             // Ordenamiento basado en el campo NombreInventario
             query = sortAscending
@@ -130,7 +130,7 @@ namespace ProyectoFarmaVita.Services.InventarioServices
         public async Task<List<Inventario>> GetByProductoIdAsync(int productoId)
         {
             return await _farmaDbContext.Inventario
-                .Include(i => i.IdProductoNavigation)
+                .Include(i => i.IdProducto) // Corregido: usar la propiedad de navegación
                 .Where(i => i.IdProducto == productoId)
                 .OrderBy(i => i.NombreInventario)
                 .ToListAsync();
@@ -139,7 +139,7 @@ namespace ProyectoFarmaVita.Services.InventarioServices
         public async Task<List<Inventario>> GetLowStockAsync()
         {
             return await _farmaDbContext.Inventario
-                .Include(i => i.IdProductoNavigation)
+                .Include(i => i.IdProducto) // Corregido: usar la propiedad de navegación
                 .Where(i => i.Cantidad <= i.StockMinimo)
                 .OrderBy(i => i.Cantidad)
                 .ToListAsync();

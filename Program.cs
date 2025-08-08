@@ -36,13 +36,13 @@ builder.Services.AddTransient<IdepartamentoService, SDepartamentoService>();
 builder.Services.AddTransient<IMunicipioService, SMunicipioService>();
 builder.Services.AddScoped<ITelefonoService, STelefonoService>();
 builder.Services.AddScoped<IDireccionService, SDireccionService>();
-builder.Services.AddScoped<IInventarioService, SInventarioService>();
 builder.Services.AddScoped<ITurnoTrabajoService, STurnoTrabajoService>();
 builder.Services.AddScoped<IAsignacionTurnoService, SAsignacionTurnoService>();
 builder.Services.AddScoped<ICategoriaService, SCategoriaService>();
 builder.Services.AddScoped<IProveedorService, SProveedorService>();
 builder.Services.AddScoped<IProductoService, SProductoService>();
 builder.Services.AddScoped<IInventarioService, SInventarioService>();
+
 
 builder.Services.AddMudServices();
 

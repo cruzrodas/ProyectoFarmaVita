@@ -127,7 +127,6 @@ namespace ProyectoFarmaVita.Services.ProductoServices
         {
             var producto = await _farmaDbContext.Producto
                 .Include(p => p.FacturaDetalle)
-                .Include(p => p.Inventario)
                 .Include(p => p.DetalleOrdenRes)
                 .FirstOrDefaultAsync(p => p.IdProducto == idProducto);
 
@@ -135,10 +134,13 @@ namespace ProyectoFarmaVita.Services.ProductoServices
             {
                 // Verificar si el producto tiene dependencias
                 bool hasDependencies = (producto.FacturaDetalle != null && producto.FacturaDetalle.Any()) ||
-                                     (producto.Inventario != null && producto.Inventario.Any()) ||
                                      (producto.DetalleOrdenRes != null && producto.DetalleOrdenRes.Any());
 
-                if (hasDependencies)
+                // También verificar si hay inventarios que referencian este producto
+                var hasInventoryDependencies = await _farmaDbContext.Inventario
+                    .AnyAsync(i => i.IdProducto == idProducto);
+
+                if (hasDependencies || hasInventoryDependencies)
                 {
                     // Eliminación lógica: cambiar estado a inactivo
                     producto.Activo = false;

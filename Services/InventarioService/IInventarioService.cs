@@ -1,6 +1,6 @@
 ﻿using ProyectoFarmaVita.Models;
 
-namespace ProyectoFarmaVita.Services.InventarioServices
+namespace ProyectoFarmaVita.Services.InventarioService
 {
     public interface IInventarioService
     {
