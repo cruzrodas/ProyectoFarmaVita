@@ -1,0 +1,420 @@
+﻿@page "/inventario"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.InventarioServices
+@using MudBlazor
+
+@inject IInventarioService InventarioServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<h3 style="margin-bottom: 20px;">Inventarios</h3>
+<a href="/inventario/agregar" class="btn btn-primary mt-2">Nuevo Inventario</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Gestión de Inventarios</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" Label="Buscar por Nombre"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6" Class="d-flex align-center">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FilterList"
+                       OnClick="ApplyFilters">
+                Buscar
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearFilters"
+                       Class="ml-2">
+                Limpiar
+            </MudButton>
+            <MudSpacer />
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Filled.Warning"
+                       OnClick="ShowLowStockInventories">
+                Ver Stock Bajo
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">
+            @if (string.IsNullOrEmpty(searchArea))
+            {
+                <MudText>No hay inventarios registrados en el sistema.</MudText>
+            }
+            else
+            {
+                <MudText>No se encontraron inventarios que coincidan con la búsqueda "@searchArea".</MudText>
+            }
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable T="Inventario"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Nombre Inventario</MudTh>
+                <MudTh>Cantidad Total</MudTh>
+                <MudTh>Productos</MudTh>
+                <MudTh>Stock</MudTh>
+                <MudTh>Última Actualización</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.IdInventario</MudTd>
+                <MudTd DataLabel="Nombre">
+                    <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.NombreInventario</MudText>
+                </MudTd>
+                <MudTd DataLabel="Cantidad">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStockColor(context)">
+                        @(context.Cantidad?.ToString() ?? "0")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Productos">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                        @(context.InventarioProducto?.Count ?? 0) productos
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Stock">
+                    @{
+                        var stockStatus = GetStockStatus(context);
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="@stockStatus.Color">
+                        @stockStatus.Text
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Actualización">
+                    @if (context.UltimaActualizacion.HasValue)
+                    {
+                        <MudText Typo="Typo.body2">@context.UltimaActualizacion.Value.ToString("dd/MM/yyyy HH:mm")</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Style="color: gray; font-style: italic;">Sin fecha</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-flex gap-1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       Title="Ver productos"
+                                       OnClick="@(() => VerProductos(context.IdInventario))" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       Title="Editar inventario"
+                                       OnClick="@(() => NavigateToEdit(context.IdInventario))" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       Title="Agregar productos"
+                                       OnClick="@(() => AgregarProductos(context.IdInventario))" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Assessment"
+                                       Color="Color.Info"
+                                       Size="Size.Small"
+                                       Title="Ver estadísticas"
+                                       OnClick="@(() => VerEstadisticas(context.IdInventario))" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       Title="Eliminar inventario"
+                                       OnClick="@(() => ConfirmDelete(context))" />
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Inventarios por página:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 10, 20, 25, 50, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+
+</MudPaper>
+
+@code {
+    private MPaginatedResult<Inventario> paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private const int PageSize = 20;
+    private string searchArea = "";
+    private Dictionary<string, object> estadisticasGenerales = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEstadisticasGenerales();
+        await LoadPage(1);
+    }
+
+    private async Task LoadEstadisticasGenerales()
+    {
+        try
+        {
+            var inventarios = await InventarioServices.GetAllAsync();
+            var inventariosBajoStock = await InventarioServices.GetLowStockAsync();
+
+            estadisticasGenerales = new Dictionary<string, object>
+            {
+                ["TotalInventarios"] = inventarios.Count,
+                ["InventariosNormales"] = inventarios.Count - inventariosBajoStock.Count,
+                ["InventariosBajoStock"] = inventariosBajoStock.Count,
+                ["InventariosSinStock"] = inventarios.Count(i => (i.Cantidad ?? 0) == 0)
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar estadísticas: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            paginatedResult = await InventarioServices.GetPaginatedAsync(page, PageSize, searchArea);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<TableData<Inventario>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+            paginatedResult = await InventarioServices.GetPaginatedAsync(page, pageSize, searchArea);
+
+            return new TableData<Inventario>
+            {
+                Items = paginatedResult.Items,
+                TotalItems = paginatedResult.TotalCount
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new TableData<Inventario>
+            {
+                Items = new List<Inventario>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ApplyFilters()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ClearFilters()
+    {
+        searchArea = "";
+        await LoadPage(1);
+    }
+
+    private async Task ShowLowStockInventories()
+    {
+        try
+        {
+            var lowStockInventories = await InventarioServices.GetLowStockAsync();
+
+            if (!lowStockInventories.Any())
+            {
+                Snackbar.Add("No hay inventarios con stock bajo", Severity.Info);
+                return;
+            }
+
+            // Crear mensaje simple para mostrar
+            var message = "Inventarios con stock bajo:\n\n";
+            foreach (var inventario in lowStockInventories)
+            {
+                message += $"• {inventario.NombreInventario}: {inventario.Cantidad}/{inventario.StockMinimo}\n";
+            }
+
+            await DialogService.ShowMessageBox("Inventarios con Stock Bajo", message, yesText: "Cerrar");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar inventarios con stock bajo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void NavigateToEdit(int idInventario)
+    {
+        NavigationManager.NavigateTo($"/inventario/agregar/{idInventario}");
+    }
+
+    private void VerProductos(int idInventario)
+    {
+        NavigationManager.NavigateTo($"/inventario/productos/{idInventario}");
+    }
+
+    private void AgregarProductos(int idInventario)
+    {
+        NavigationManager.NavigateTo($"/inventario/productos/agregar/{idInventario}");
+    }
+
+    private async Task VerEstadisticas(int idInventario)
+    {
+        try
+        {
+            var stats = await InventarioServices.GetInventoryStatsAsync(idInventario);
+            var inventario = await InventarioServices.GetByIdAsync(idInventario);
+
+            // Crear mensaje simple para mostrar estadísticas
+            var message = $"Estadísticas de: {inventario.NombreInventario}\n\n";
+            foreach (var stat in stats)
+            {
+                message += $"{stat.Key}: {stat.Value}\n";
+            }
+
+            await DialogService.ShowMessageBox("Estadísticas del Inventario", message, yesText: "Cerrar");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar estadísticas: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Color GetStockColor(Inventario inventario)
+    {
+        var cantidad = inventario.Cantidad ?? 0;
+        var stockMinimo = inventario.StockMinimo ?? 0;
+
+        if (cantidad == 0) return Color.Error;
+        if (cantidad <= stockMinimo) return Color.Warning;
+        return Color.Success;
+    }
+
+    private (Color Color, string Text) GetStockStatus(Inventario inventario)
+    {
+        var cantidad = inventario.Cantidad ?? 0;
+        var stockMinimo = inventario.StockMinimo ?? 0;
+        var stockMaximo = inventario.StockMaximo ?? int.MaxValue;
+
+        if (cantidad == 0)
+            return (Color.Error, "Sin Stock");
+        else if (cantidad <= stockMinimo)
+            return (Color.Warning, "Stock Bajo");
+        else if (cantidad > stockMaximo)
+            return (Color.Info, "Sobre Stock");
+        else
+            return (Color.Success, "Normal");
+    }
+
+    private async Task ConfirmDelete(Inventario inventario)
+    {
+        var productCount = inventario.InventarioProducto?.Count ?? 0;
+
+        string message;
+        if (productCount > 0)
+        {
+            message = $"No se puede eliminar el inventario '{inventario.NombreInventario}' porque tiene {productCount} producto(s) asociado(s).";
+            await DialogService.ShowMessageBox(
+                "No se puede eliminar",
+                message,
+                yesText: "Entendido");
+        }
+        else
+        {
+            message = $"¿Está seguro que desea eliminar el inventario '{inventario.NombreInventario}'?\n\nEsta acción no se puede deshacer.";
+            var dialog = await DialogService.ShowMessageBox(
+                "Confirmar eliminación",
+                message,
+                yesText: "Eliminar",
+                cancelText: "Cancelar");
+
+            if (dialog == true)
+            {
+                await DeleteInventario(inventario.IdInventario);
+            }
+        }
+    }
+
+    private async Task DeleteInventario(int idInventario)
+    {
+        try
+        {
+            var result = await InventarioServices.DeleteAsync(idInventario);
+            if (result)
+            {
+                Snackbar.Add("Inventario eliminado correctamente", Severity.Success);
+                await LoadEstadisticasGenerales();
+                await LoadPage(1);
+            }
+            else
+            {
+                Snackbar.Add("Error al eliminar el inventario", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al eliminar: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+
+}

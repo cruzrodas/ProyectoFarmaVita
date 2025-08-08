@@ -137,8 +137,8 @@ namespace ProyectoFarmaVita.Services.ProductoServices
                                      (producto.DetalleOrdenRes != null && producto.DetalleOrdenRes.Any());
 
                 // También verificar si hay inventarios que referencian este producto
-                var hasInventoryDependencies = await _farmaDbContext.Inventario
-                    .AnyAsync(i => i.IdProducto == idProducto);
+                var hasInventoryDependencies = await _farmaDbContext.InventarioProducto
+                    .AnyAsync(ip => ip.IdProducto == idProducto);
 
                 if (hasDependencies || hasInventoryDependencies)
                 {

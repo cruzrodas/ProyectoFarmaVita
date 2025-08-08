@@ -1,0 +1,397 @@
+﻿@page "/inventario/agregar"
+@page "/inventario/agregar/{IdInventario:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.InventarioServices
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+
+@inject IInventarioService InventarioServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdInventario.HasValue ? "Editar Inventario" : "Nuevo Inventario")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdInventario.HasValue ? "Editar Inventario" : "Agregar Nuevo Inventario")
+    </MudText>
+
+    @if (IdInventario.HasValue && inventario != null)
+    {
+        <MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info" Class="mb-4">
+            <MudText>
+                Editando inventario: <strong>@inventario.NombreInventario</strong>
+                @if (inventario.UltimaActualizacion.HasValue)
+                {
+                    <span> - Última actualización: @inventario.UltimaActualizacion.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                }
+            </MudText>
+        </MudAlert>
+
+        @if (estadisticasInventario != null && estadisticasInventario.Any())
+        {
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Color="Color.Primary">Total Productos</MudText>
+                            <MudText Typo="Typo.h4">@estadisticasInventario["TotalProductos"]</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Color="Color.Success">Cantidad Total</MudText>
+                            <MudText Typo="Typo.h4">@estadisticasInventario["CantidadTotal"]</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Color="Color.Warning">Stock Bajo</MudText>
+                            <MudText Typo="Typo.h4">@estadisticasInventario["ProductosBajoStock"]</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Color="Color.Info">Valor Total</MudText>
+                            <MudText Typo="Typo.h4">Q@(Convert.ToDecimal(estadisticasInventario["ValorTotalInventario"]).ToString("N2"))</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+        }
+    }
+
+    <EditForm Model="inventarioForm" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Nombre del Inventario"
+                              @bind-Value="inventarioForm.NombreInventario"
+                              For="@(() => inventarioForm.NombreInventario)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre del inventario es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true"
+                              OnBlur="ValidateNombreInventario" />
+
+                @if (!string.IsNullOrEmpty(nombreValidationMessage))
+                {
+                    <MudText Color="Color.Error" Typo="Typo.body2" Class="mt-1">@nombreValidationMessage</MudText>
+                }
+            </MudItem>
+
+            @if (!IdInventario.HasValue)
+            {
+                <MudItem xs="12" md="6">
+                    <MudNumericField T="int?"
+                                     Label="Cantidad Inicial"
+                                     @bind-Value="inventario.Cantidad"
+                                     Variant="Variant.Outlined"
+                                     Min="0"
+                                     HelperText="Cantidad inicial del inventario (opcional)" />
+                </MudItem>
+            }
+
+            <MudItem xs="12" md="6">
+                <MudNumericField T="int?"
+                                 Label="Stock Mínimo"
+                                 @bind-Value="inventario.StockMinimo"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 HelperText="Cantidad mínima antes de alerta" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudNumericField T="int?"
+                                 Label="Stock Máximo"
+                                 @bind-Value="inventario.StockMaximo"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 HelperText="Cantidad máxima permitida" />
+            </MudItem>
+
+            @if (IdInventario.HasValue)
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Acciones Rápidas</MudText>
+                    <MudDivider />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Visibility"
+                               FullWidth="true"
+                               OnClick="@(() => NavigationManager.NavigateTo($"/inventario/productos/{IdInventario}"))">
+                        Ver Productos
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               FullWidth="true"
+                               OnClick="@(() => NavigationManager.NavigateTo($"/inventario/productos/agregar/{IdInventario}"))">
+                        Agregar Productos
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.Warning"
+                               FullWidth="true"
+                               OnClick="VerProductosBajoStock">
+                        Ver Stock Bajo
+                    </MudButton>
+                </MudItem>
+
+                
+            }
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/inventario"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(isSubmitting || !string.IsNullOrEmpty(nombreValidationMessage))">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdInventario.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdInventario { get; set; }
+
+    private Inventario inventario = new Inventario();
+    private InventarioFormModel inventarioForm = new InventarioFormModel();
+    private bool isSubmitting = false;
+    private string nombreValidationMessage = "";
+    private Dictionary<string, object> estadisticasInventario = new();
+
+    // Modelo para el formulario con validaciones
+    public class InventarioFormModel
+    {
+        [Required(ErrorMessage = "El nombre del inventario es requerido")]
+        [StringLength(100, ErrorMessage = "El nombre no puede exceder los 100 caracteres")]
+        public string? NombreInventario { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Cargar inventario si es edición
+            if (IdInventario.HasValue)
+            {
+                try
+                {
+                    inventario = await InventarioServices.GetByIdAsync(IdInventario.Value);
+
+                    // Mapear los datos al formulario
+                    inventarioForm.NombreInventario = inventario.NombreInventario;
+
+                    // Cargar estadísticas del inventario
+                    await LoadEstadisticasInventario();
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Error al cargar el inventario: {ex.Message}", Severity.Error);
+                    NavigationManager.NavigateTo("/inventario");
+                }
+            }
+            else
+            {
+                inventario = new Inventario();
+                inventarioForm = new InventarioFormModel();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al inicializar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadEstadisticasInventario()
+    {
+        if (IdInventario.HasValue)
+        {
+            try
+            {
+                estadisticasInventario = await InventarioServices.GetInventoryStatsAsync(IdInventario.Value);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cargar estadísticas: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ValidateNombreInventario()
+    {
+        nombreValidationMessage = "";
+
+        if (!string.IsNullOrEmpty(inventarioForm.NombreInventario))
+        {
+            try
+            {
+                // Para inventarios, haremos una validación básica
+                // En un escenario real, necesitarías agregar un método ExistsAsync al servicio
+                var inventarios = await InventarioServices.GetAllAsync();
+                var exists = inventarios.Any(i => 
+                    i.NombreInventario.Equals(inventarioForm.NombreInventario, StringComparison.OrdinalIgnoreCase) && 
+                    i.IdInventario != (IdInventario ?? 0));
+
+                if (exists)
+                {
+                    nombreValidationMessage = "Ya existe un inventario con este nombre";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en validación: {ex.Message}");
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Validar nombre único una vez más antes de guardar
+            if (!string.IsNullOrEmpty(inventarioForm.NombreInventario))
+            {
+                var inventarios = await InventarioServices.GetAllAsync();
+                var exists = inventarios.Any(i => 
+                    i.NombreInventario.Equals(inventarioForm.NombreInventario, StringComparison.OrdinalIgnoreCase) && 
+                    i.IdInventario != (IdInventario ?? 0));
+
+                if (exists)
+                {
+                    Snackbar.Add("Ya existe un inventario con este nombre", Severity.Warning);
+                    return;
+                }
+            }
+
+            // Mapear datos del formulario al modelo
+            if (IdInventario.HasValue)
+            {
+                inventario.IdInventario = IdInventario.Value;
+            }
+
+            inventario.NombreInventario = inventarioForm.NombreInventario?.Trim();
+
+            // Validaciones adicionales
+            if (inventario.StockMinimo.HasValue && inventario.StockMaximo.HasValue &&
+                inventario.StockMinimo > inventario.StockMaximo)
+            {
+                Snackbar.Add("El stock mínimo no puede ser mayor que el stock máximo", Severity.Warning);
+                return;
+            }
+
+            var result = await InventarioServices.AddUpdateAsync(inventario);
+
+            if (result)
+            {
+                var message = IdInventario.HasValue ? "Inventario actualizado correctamente" : "Inventario creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+
+                // Si es un nuevo inventario, redirigir a la página de agregar productos
+                if (!IdInventario.HasValue && inventario.IdInventario > 0)
+                {
+                    await DialogService.ShowMessageBox(
+                        "¡Inventario creado!",
+                        "¿Desea agregar productos al inventario ahora?",
+                        yesText: "Sí, agregar productos",
+                        noText: "Más tarde");
+
+                    if (true) // Aquí podrías usar el resultado del diálogo
+                    {
+                        NavigationManager.NavigateTo($"/inventario/productos/agregar/{inventario.IdInventario}");
+                        return;
+                    }
+                }
+
+                NavigationManager.NavigateTo("/inventario");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el inventario", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en HandleSubmit: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task VerProductosBajoStock()
+    {
+        if (!IdInventario.HasValue) return;
+
+        try
+        {
+            var productosBajoStock = await InventarioServices.GetLowStockProductsAsync(IdInventario.Value);
+
+            if (!productosBajoStock.Any())
+            {
+                Snackbar.Add("No hay productos con stock bajo en este inventario", Severity.Info);
+                return;
+            }
+
+            var parameters = new DialogParameters
+            {
+                ["ProductosBajoStock"] = productosBajoStock,
+                ["InventarioId"] = IdInventario.Value
+            };
+
+            // await DialogService.ShowAsync<ProductosBajoStockDialog>("Productos con Stock Bajo", parameters);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar productos con stock bajo: {ex.Message}", Severity.Error);
+        }
+    }
+
+}
