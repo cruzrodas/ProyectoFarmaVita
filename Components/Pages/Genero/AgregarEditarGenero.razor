@@ -1,0 +1,122 @@
+﻿@page "/genero/agregar"
+@page "/genero/agregar/{IdGenero:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.GeneroServices
+@using MudBlazor
+
+@inject IGeneroServices GeneroServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdGenero.HasValue ? "Editar Genero" : "Nuevo Genero")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdGenero.HasValue ? "Editar Genero" : "Agregar Nuevo Genero")
+    </MudText>
+
+    <EditForm Model="genero" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Genero"
+                              @bind-Value="genero.Ngenero"
+                              For="@(() => genero.Ngenero)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre del genero es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true" />
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/Genero"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdGenero.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdGenero { get; set; }
+
+    private Genero genero = new Genero();
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IdGenero.HasValue)
+        {
+            try
+            {
+                genero = await GeneroServices.GetByIdAsync(IdGenero.Value);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al cargar el genero: {ex.Message}", Severity.Error);
+                NavigationManager.NavigateTo("/Genero");
+            }
+        }
+        else
+        {
+            genero = new Genero();
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await GeneroServices.AddUpdateAsync(genero);
+
+            if (result)
+            {
+                var message = IdGenero.HasValue ? "Genero actualizado correctamente" : "Genero creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/Genero");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el Genero", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+}

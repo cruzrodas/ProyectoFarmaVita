@@ -1,6 +1,7 @@
 ﻿@page "/personas"
 @using ProyectoFarmaVita.Models
 @using ProyectoFarmaVita.Services.PersonaServices
+@using Microsoft.AspNetCore.Components.Web
 @inject IPersonaService PersonaService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -22,12 +23,6 @@
 							   OnClick="@(() => NavigationManager.NavigateTo("/personas/crear"))"
 							   Class="new-person-button">
 						Nueva Persona
-					</MudButton>
-					<MudButton Color="@(mostrarInactivos? Color.Secondary: Color.Primary)"
-							   StartIcon="@(mostrarInactivos ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-							   OnClick="@CambiarVistaPersonas"
-							   Class="toggle-view-button">
-						@(mostrarInactivos ? "Ver Activos" : "Ver Inactivos")
 					</MudButton>
 				</MudButtonGroup>
 			</MudItem>
@@ -52,6 +47,7 @@
 							<MudItem xs="12" sm="6" md="2">
 								<MudSelect @bind-Value="filtroRol"
 										   Label="Rol"
+										   T="int?"
 										   Clearable="true"
 										   AdornmentIcon="@Icons.Material.Filled.Work"
 										   Adornment="Adornment.Start">
@@ -59,7 +55,7 @@
 									{
 										@foreach (var rol in roles)
 										{
-											<MudSelectItem Value="@rol.IdRol">@rol.TipoRol</MudSelectItem>
+											<MudSelectItem T="int?" Value="@((int?)rol.IdRol)">@rol.TipoRol</MudSelectItem>
 										}
 									}
 								</MudSelect>
@@ -67,6 +63,7 @@
 							<MudItem xs="12" sm="6" md="2">
 								<MudSelect @bind-Value="filtroSucursal"
 										   Label="Sucursal"
+										   T="int?"
 										   Clearable="true"
 										   AdornmentIcon="@Icons.Material.Filled.Business"
 										   Adornment="Adornment.Start">
@@ -74,7 +71,7 @@
 									{
 										@foreach (var sucursal in sucursales)
 										{
-											<MudSelectItem Value="@sucursal.IdSucursal">@sucursal.NombreSucursal</MudSelectItem>
+											<MudSelectItem T="int?" Value="@((int?)sucursal.IdSucursal)">@sucursal.NombreSucursal</MudSelectItem>
 										}
 									}
 								</MudSelect>
@@ -82,6 +79,7 @@
 							<MudItem xs="12" sm="6" md="2">
 								<MudSelect @bind-Value="filtroGenero"
 										   Label="Género"
+										   T="int?"
 										   Clearable="true"
 										   AdornmentIcon="@Icons.Material.Filled.Person"
 										   Adornment="Adornment.Start">
@@ -89,7 +87,7 @@
 									{
 										@foreach (var genero in generos)
 										{
-											<MudSelectItem Value="@genero.IdGenero">@genero.Ngenero</MudSelectItem>
+											<MudSelectItem T="int?" Value="@((int?)genero.IdGenero)">@genero.Ngenero</MudSelectItem>
 										}
 									}
 								</MudSelect>
@@ -97,6 +95,7 @@
 							<MudItem xs="12" sm="6" md="2">
 								<MudSelect @bind-Value="filtroEstadoCivil"
 										   Label="Estado Civil"
+										   T="int?"
 										   Clearable="true"
 										   AdornmentIcon="@Icons.Material.Filled.Favorite"
 										   Adornment="Adornment.Start">
@@ -104,7 +103,7 @@
 									{
 										@foreach (var estado in estadosCiviles)
 										{
-											<MudSelectItem Value="@estado.IdEstadoCivil">@estado.EstadoCivil1</MudSelectItem>
+											<MudSelectItem T="int?" Value="@((int?)estado.IdEstadoCivil)">@estado.EstadoCivil1</MudSelectItem>
 										}
 									}
 								</MudSelect>
@@ -345,103 +344,6 @@
 					</PagerContent>
 				</MudTable>
 			</MudItem>
-
-			<!-- Mobile Cards View -->
-			<MudHidden Breakpoint="Breakpoint.SmAndUp" Invert="true">
-				<MudItem xs="12">
-					@if (currentTableData?.Items?.Any() == true)
-					{
-						@foreach (var persona in currentTableData.Items)
-						{
-							<MudCard Class="mb-3 mobile-card" Elevation="3">
-								<MudCardContent>
-									<div class="d-flex justify-space-between align-start mb-3">
-										<div class="flex-grow-1">
-											<MudText Typo="Typo.h6" Class="mb-2 text-primary">
-												@($"{persona.Nombre ?? ""} {persona.Apellido ?? ""}")
-											</MudText>
-											<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-												<MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" Class="mr-1" />
-												@(persona.Email ?? "Sin email")
-											</MudText>
-											<div class="d-flex flex-wrap gap-2 mb-3">
-												<MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Tag">
-													ID: @persona.IdPersona
-												</MudChip>
-												<MudChip T="string"
-														 Size="Size.Small"
-														 Color="@(persona.Activo == true ? Color.Success : Color.Error)"
-														 Icon="@(persona.Activo == true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)">
-													@(persona.Activo == true ? "Activo" : "Inactivo")
-												</MudChip>
-												@{
-													var rolText = GetRolText(persona);
-												}
-												@if (!string.IsNullOrEmpty(rolText))
-												{
-													<MudChip T="string" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.Work">
-														@rolText
-													</MudChip>
-												}
-											</div>
-											@if (persona.Dpi.HasValue)
-											{
-												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-flex align-center">
-													<MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Class="mr-1" />
-													DPI: @persona.Dpi.Value.ToString("N0")
-												</MudText>
-											}
-											@if (persona.FechaCreacion.HasValue)
-											{
-												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-flex align-center mt-1">
-													<MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Class="mr-1" />
-													Registrado: @persona.FechaCreacion.Value.ToString("dd/MM/yyyy")
-												</MudText>
-											}
-										</div>
-										<MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Class="action-menu">
-											<MudMenuItem Icon="@Icons.Material.Filled.Visibility"
-														 OnClick="@(() => VerDetalles(persona))">
-												Ver Detalles
-											</MudMenuItem>
-											<MudMenuItem Icon="@Icons.Material.Filled.Edit"
-														 OnClick="@(() => EditarPersona(persona))">
-												Editar
-											</MudMenuItem>
-											@if (persona.Activo == true)
-											{
-												<MudMenuItem Icon="@Icons.Material.Filled.PersonOff"
-															 OnClick="@(() => DesactivarPersona(persona))">
-													Desactivar
-												</MudMenuItem>
-											}
-											else
-											{
-												<MudMenuItem Icon="@Icons.Material.Filled.PersonAdd"
-															 OnClick="@(() => ActivarPersona(persona))">
-													Activar
-												</MudMenuItem>
-											}
-											<MudDivider />
-											<MudMenuItem Icon="@Icons.Material.Filled.Delete"
-														 OnClick="@(() => EliminarPersona(persona))"
-														 Class="text-error">
-												Eliminar
-											</MudMenuItem>
-										</MudMenu>
-									</div>
-								</MudCardContent>
-							</MudCard>
-						}
-					}
-					else if (!loading)
-					{
-						<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info" Class="ma-4">
-							<MudText>No se encontraron personas con los filtros aplicados.</MudText>
-						</MudAlert>
-					}
-				</MudItem>
-			</MudHidden>
 		</MudGrid>
 	</MudPaper>
 </MudContainer>
@@ -515,6 +417,22 @@
 		animation: pulse 2s infinite;
 	}
 
+	@@keyframes pulse {
+		0% {
+			opacity: 1;
+			transform: scale(1);
+		}
+
+		50% {
+			opacity: 0.7;
+			transform: scale(1.05);
+		}
+
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
 
 	/* Mobile Cards */
 	.mobile-card {
@@ -552,15 +470,11 @@
 		background-color: rgba(244, 67, 54, 0.1);
 		color: #f44336 !important;
 	}
-
-
 </style>
 
 @code {
-	// Variables para controlar concurrencia
+	// Variables principales
 	private bool loading = true;
-	private bool _isLoadingData = false; // Nueva variable para prevenir concurrencia
-	private readonly SemaphoreSlim _loadingSemaphore = new(1, 1); // Semáforo para control de acceso
 	private string searchString = "";
 	private int? filtroRol = null;
 	private int? filtroSucursal = null;
@@ -568,17 +482,20 @@
 	private int? filtroEstadoCivil = null;
 	private bool mostrarInactivos = false;
 
+	// Datos de referencia
 	private List<Rol> roles = new();
 	private List<Sucursal> sucursales = new();
 	private List<Genero> generos = new();
 	private List<EstadoCivil> estadosCiviles = new();
 
+	// Referencias de componentes
 	private MudTable<Persona>? table;
 	private TableData<Persona> currentTableData = new() { Items = new List<Persona>(), TotalItems = 0 };
 
-	// CancellationToken para operaciones async
-	private CancellationTokenSource? _cancellationTokenSource;
+	// Control de ciclo de vida y concurrencia
 	private bool _disposed = false;
+	private readonly SemaphoreSlim _loadingSemaphore = new(1, 1);
+	private CancellationTokenSource? _cancellationTokenSource;
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -591,26 +508,17 @@
 		catch (Exception ex)
 		{
 			Console.WriteLine($"Error en OnInitializedAsync: {ex}");
-			// No mostrar error en OnInitializedAsync para evitar problemas de circuito
-			// Solo log del error
-		}
-	}
-
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		if (firstRender)
-		{
-			try
+			if (!_disposed)
 			{
-				// Recargar datos después del primer render si es necesario
-				if (currentTableData.Items?.Any() != true && table != null)
-				{
-					await table.ReloadServerData();
-				}
+				Snackbar.Add($"Error al cargar datos iniciales: {ex.Message}", Severity.Error);
 			}
-			catch (Exception ex)
+		}
+		finally
+		{
+			if (!_disposed)
 			{
-				Console.WriteLine($"Error en OnAfterRenderAsync: {ex}");
+				loading = false;
+				StateHasChanged();
 			}
 		}
 	}
@@ -657,12 +565,22 @@
 		}
 	}
 
-	// Evento mejorado para búsqueda
+	// Eventos de búsqueda con control de concurrencia
 	private async Task OnSearchChanged()
 	{
-		if (!_disposed && table != null)
+		if (_disposed || _cancellationTokenSource?.Token.IsCancellationRequested == true) return;
+
+		await _loadingSemaphore.WaitAsync();
+		try
 		{
-			await table.ReloadServerData();
+			if (!_disposed && table != null)
+			{
+				await table.ReloadServerData();
+			}
+		}
+		finally
+		{
+			_loadingSemaphore.Release();
 		}
 	}
 
@@ -670,41 +588,37 @@
 	{
 		if (e.Key == "Enter" && !_disposed && table != null)
 		{
-			await table.ReloadServerData();
+			await OnSearchChanged();
 		}
 	}
 
 	private async Task OnBuscarClick()
 	{
-		if (!_disposed && table != null)
-		{
-			await table.ReloadServerData();
-		}
+		await OnSearchChanged();
 	}
 
 	private async Task CambiarVistaPersonas()
 	{
+		if (_disposed) return;
+
 		mostrarInactivos = !mostrarInactivos;
-		if (!_disposed && table != null)
-		{
-			await table.ReloadServerData();
-		}
+		await OnSearchChanged();
 	}
 
 	private async Task LimpiarFiltros()
 	{
+		if (_disposed) return;
+
 		searchString = "";
 		filtroRol = null;
 		filtroSucursal = null;
 		filtroGenero = null;
 		filtroEstadoCivil = null;
 
-		if (!_disposed && table != null)
-		{
-			await table.ReloadServerData();
-		}
+		await OnSearchChanged();
 	}
 
+	// Navegación
 	private void VerDetalles(Persona persona)
 	{
 		if (!_disposed)
@@ -721,6 +635,7 @@
 		}
 	}
 
+	// Operaciones CRUD
 	private async Task DesactivarPersona(Persona persona)
 	{
 		if (_disposed) return;
@@ -836,6 +751,7 @@
 		}
 	}
 
+	// Carga de datos
 	private async Task CargarDatosIniciales()
 	{
 		if (_disposed) return;
@@ -843,7 +759,7 @@
 		try
 		{
 			loading = true;
-			StateHasChanged();
+			if (!_disposed) StateHasChanged();
 
 			var tasks = new List<Task>
 			{
@@ -861,14 +777,6 @@
 			if (!_disposed)
 			{
 				await MostrarError($"Error al cargar datos iniciales: {ex.Message}");
-			}
-		}
-		finally
-		{
-			if (!_disposed)
-			{
-				loading = false;
-				StateHasChanged();
 			}
 		}
 	}
@@ -929,38 +837,25 @@
 		}
 	}
 
+	// Método principal de carga de datos de la tabla con control de concurrencia
 	private async Task<TableData<Persona>> LoadServerData(TableState state, CancellationToken cancellationToken)
 	{
-		// Verificar si el componente fue disposed
-		if (_disposed || _cancellationTokenSource?.Token.IsCancellationRequested == true)
+		if (_disposed || cancellationToken.IsCancellationRequested)
 		{
 			return new TableData<Persona> { Items = new List<Persona>(), TotalItems = 0 };
 		}
 
-		// Prevenir múltiples llamadas concurrentes usando semáforo
-		if (_isLoadingData)
+		// Control de concurrencia mejorado
+		if (!await _loadingSemaphore.WaitAsync(1000, cancellationToken))
 		{
-			Console.WriteLine("LoadServerData ya está ejecutándose, devolviendo datos actuales");
-			return currentTableData;
-		}
-
-		// Intentar adquirir el semáforo con timeout
-		if (!await _loadingSemaphore.WaitAsync(100, cancellationToken))
-		{
-			Console.WriteLine("No se pudo adquirir el semáforo, devolviendo datos actuales");
+			Console.WriteLine("LoadServerData - Timeout esperando semáforo");
 			return currentTableData;
 		}
 
 		try
 		{
-			_isLoadingData = true;
 			loading = true;
-
-			// StateHasChanged solo si no estamos disposed
-			if (!_disposed)
-			{
-				await InvokeAsync(StateHasChanged);
-			}
+			if (!_disposed) await InvokeAsync(StateHasChanged);
 
 			// Logs para debugging
 			Console.WriteLine($"LoadServerData - Page: {state.Page + 1}, PageSize: {state.PageSize}");
@@ -972,27 +867,20 @@
 
 			Console.WriteLine($"Orden: {sortLabel} {(ascending ? "ASC" : "DESC")}");
 
-			// Verificar que el servicio esté disponible
-			if (PersonaService == null)
-			{
-				Console.WriteLine("PersonaService es null");
-				return new TableData<Persona> { Items = new List<Persona>(), TotalItems = 0 };
-			}
-
-			// Crear token combinado con timeout
-			using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-			using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				_cancellationTokenSource?.Token ?? CancellationToken.None,
-				timeoutCts.Token);
-
 			// Validar parámetros
 			var pageNumber = Math.Max(1, state.Page + 1);
 			var pageSize = Math.Max(1, Math.Min(1000, state.PageSize));
 
 			Console.WriteLine($"Llamando a PersonaService.GetPaginatedAsync...");
 
-			// Llamada al servicio con validación de parámetros
+			// Crear CancellationToken combinado
+			using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+			using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(
+				cancellationToken,
+				_cancellationTokenSource?.Token ?? CancellationToken.None,
+				timeoutCts.Token);
+
+			// Llamada al servicio con timeout
 			var (personas, totalCount) = await PersonaService.GetPaginatedAsync(
 				pageNumber,
 				pageSize,
@@ -1006,14 +894,14 @@
 				filtroEstadoCivil
 			);
 
-			Console.WriteLine($"PersonaService.GetPaginatedAsync completado");
-
 			// Verificar si fue cancelado
 			if (combinedCts.Token.IsCancellationRequested || _disposed)
 			{
-				Console.WriteLine("Operación cancelada durante la ejecución");
+				Console.WriteLine("LoadServerData - Operación cancelada");
 				return currentTableData;
 			}
+
+			Console.WriteLine($"PersonaService.GetPaginatedAsync completado - Personas: {personas?.Count ?? 0}, Total: {totalCount}");
 
 			// Validar los datos recibidos
 			if (personas == null)
@@ -1021,9 +909,6 @@
 				Console.WriteLine("PersonaService devolvió null");
 				personas = new List<Persona>();
 			}
-
-			// Logs de resultados
-			Console.WriteLine($"Datos recibidos - Personas: {personas.Count}, Total: {totalCount}");
 
 			if (personas.Any())
 			{
@@ -1047,12 +932,7 @@
 		}
 		catch (OperationCanceledException)
 		{
-			Console.WriteLine("Operación cancelada - LoadServerData");
-			return currentTableData;
-		}
-		catch (ObjectDisposedException ex)
-		{
-			Console.WriteLine($"Objeto disposed en LoadServerData: {ex.Message}");
+			Console.WriteLine("LoadServerData - Operación cancelada");
 			return currentTableData;
 		}
 		catch (Exception ex)
@@ -1060,7 +940,6 @@
 			Console.WriteLine($"ERROR en LoadServerData: {ex}");
 			Console.WriteLine($"StackTrace: {ex.StackTrace}");
 
-			// Solo mostrar error si el componente no está disposed
 			if (!cancellationToken.IsCancellationRequested && !_disposed)
 			{
 				try
@@ -1081,7 +960,6 @@
 		}
 		finally
 		{
-			_isLoadingData = false;
 			_loadingSemaphore.Release();
 
 			if (!_disposed)
@@ -1099,7 +977,7 @@
 		}
 	}
 
-	// Métodos auxiliares para mensajes con manejo de errores
+	// Métodos auxiliares para mensajes
 	private async Task MostrarExito(string mensaje)
 	{
 		try

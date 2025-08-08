@@ -1,0 +1,282 @@
+﻿@page "/categoria"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.CategoriaProductoService
+@using MudBlazor
+
+@inject ICategoriaService CategoriaServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<h3 style="margin-bottom: 20px;">Categorías</h3>
+<a href="/categoria/agregar" class="btn btn-primary mt-2">Nueva Categoría</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Gestión de Categorías</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" Label="Buscar por Nombre o Descripción"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6" Class="d-flex align-center">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FilterList"
+                       OnClick="ApplyFilters">
+                Buscar
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearFilters"
+                       Class="ml-2">
+                Limpiar
+            </MudButton>
+            <MudSpacer />
+            
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">
+            @if (string.IsNullOrEmpty(searchArea))
+            {
+                <MudText>No hay categorías registradas en el sistema.</MudText>
+            }
+            else
+            {
+                <MudText>No se encontraron categorías que coincidan con la búsqueda "@searchArea".</MudText>
+            }
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable T="Categoria"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Nombre Categoría</MudTh>
+                <MudTh>Descripción</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.IdCategoria</MudTd>
+                <MudTd DataLabel="Nombre">
+                    <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.NombreCategoria</MudText>
+                </MudTd>
+                <MudTd DataLabel="Descripción">
+                    @if (string.IsNullOrEmpty(context.DescripcionCategoria))
+                    {
+                        <MudText Typo="Typo.body2" Style="color: gray; font-style: italic;">Sin descripción</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">
+                            @(context.DescripcionCategoria.Length > 50 
+                                ? context.DescripcionCategoria.Substring(0, 50) + "..." 
+                                : context.DescripcionCategoria)
+                        </MudText>
+                    }
+                </MudTd>
+                
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-flex gap-1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       Title="Editar categoría"
+                                       OnClick="@(() => NavigateToEdit(context.IdCategoria))" />
+                        
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       Title="Eliminar categoría"
+                                       OnClick="@(() => ConfirmDelete(context))" />
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Categorías por página:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 10, 20, 25, 50, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+
+</MudPaper>
+
+@code {
+    private MPaginatedResult<Categoria> paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private DialogOptions dialogOptions = new() { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+    private const int PageSize = 20;
+    private string searchArea = "";
+    
+    // Estadísticas
+    private int totalProductos = 0;
+    private int categoriasConProductos = 0;
+    private int categoriasSinProductos = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            paginatedResult = await CategoriaServices.GetPaginatedAsync(page, PageSize, searchArea);
+           
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task<TableData<Categoria>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+            paginatedResult = await CategoriaServices.GetPaginatedAsync(page, pageSize, searchArea);
+
+            return new TableData<Categoria>
+            {
+                Items = paginatedResult.Items,
+                TotalItems = paginatedResult.TotalCount
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new TableData<Categoria>
+            {
+                Items = new List<Categoria>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ApplyFilters()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ClearFilters()
+    {
+        searchArea = "";
+        await LoadPage(1);
+    }
+
+    private void NavigateToEdit(int idCategoria)
+    {
+        NavigationManager.NavigateTo($"/categoria/agregar/{idCategoria}");
+    }
+
+    private async Task ConfirmDelete(Categoria categoria)
+    {
+        var productCount = categoria.Producto?.Count ?? 0;
+        
+        string message;
+        if (productCount > 0)
+        {
+            message = $"No se puede eliminar la categoría '{categoria.NombreCategoria}' porque tiene {productCount} producto(s) asociado(s).";
+            await DialogService.ShowMessageBox(
+                "No se puede eliminar",
+                message,
+                yesText: "Entendido");
+        }
+        else
+        {
+            message = $"¿Está seguro que desea eliminar la categoría '{categoria.NombreCategoria}'?\n\nEsta acción no se puede deshacer.";
+            var dialog = await DialogService.ShowMessageBox(
+                "Confirmar eliminación",
+                message,
+                yesText: "Eliminar",
+                cancelText: "Cancelar");
+
+            if (dialog == true)
+            {
+                await DeleteCategoria(categoria.IdCategoria);
+            }
+        }
+    }
+
+    private async Task DeleteCategoria(int idCategoria)
+    {
+        try
+        {
+            var result = await CategoriaServices.DeleteAsync(idCategoria);
+            if (result)
+            {
+                Snackbar.Add("Categoría eliminada correctamente", Severity.Success);
+                await LoadPage(1);
+            }
+            else
+            {
+                Snackbar.Add("Error al eliminar la categoría", Severity.Error);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al eliminar: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+}

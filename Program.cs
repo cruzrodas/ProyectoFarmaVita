@@ -2,8 +2,24 @@ using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using ProyectoFarmaVita.Components;
 using ProyectoFarmaVita.Models;
+using ProyectoFarmaVita.Services.AsignacionTurnoServices;
+using ProyectoFarmaVita.Services.CategoriaProductoService;
+using ProyectoFarmaVita.Services.CategoriaServices;
+using ProyectoFarmaVita.Services.DepartamentoServices;
+using ProyectoFarmaVita.Services.DireccionServices;
+using ProyectoFarmaVita.Services.EstadoCivilServices;
+using ProyectoFarmaVita.Services.GeneroServices;
+using ProyectoFarmaVita.Services.InventarioServices;
+using ProyectoFarmaVita.Services.MunicipioService;
+using ProyectoFarmaVita.Services.MunicipioServices;
 using ProyectoFarmaVita.Services.PersonaServices;
+using ProyectoFarmaVita.Services.ProductoService;
+using ProyectoFarmaVita.Services.ProductoServices;
+using ProyectoFarmaVita.Services.ProveedorServices;
 using ProyectoFarmaVita.Services.SucursalServices;
+using ProyectoFarmaVita.Services.TelefonoServices;
+using ProyectoFarmaVita.Services.TurnoTrabajoService;
+using ProyectoFarmaVita.Services.TurnoTrabajoServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +29,20 @@ builder.Services.AddRazorComponents()
 
 // CAMBIO 1: Cambiar de Scoped a Transient para el servicio
 builder.Services.AddTransient<IPersonaService, SPersonaServices>();
-builder.Services.AddTransient<ISucursalService, SSucursalServices>();
+builder.Services.AddTransient<ISucursalService, SSucursalService>();
+builder.Services.AddTransient<IEstadoCivil, SEstadoCivil>();
+builder.Services.AddTransient<IGeneroServices, SGeneroServices>();
+builder.Services.AddTransient<IdepartamentoService, SDepartamentoService>();
+builder.Services.AddTransient<IMunicipioService, SMunicipioService>();
+builder.Services.AddScoped<ITelefonoService, STelefonoService>();
+builder.Services.AddScoped<IDireccionService, SDireccionService>();
+builder.Services.AddScoped<IInventarioService, SInventarioService>();
+builder.Services.AddScoped<ITurnoTrabajoService, STurnoTrabajoService>();
+builder.Services.AddScoped<IAsignacionTurnoService, SAsignacionTurnoService>();
+builder.Services.AddScoped<ICategoriaService, SCategoriaService>();
+builder.Services.AddScoped<IProveedorService, SProveedorService>();
+builder.Services.AddScoped<IProductoService, SProductoService>();
+
 builder.Services.AddMudServices();
 
 

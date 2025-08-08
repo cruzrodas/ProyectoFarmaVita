@@ -1,0 +1,189 @@
+﻿@page "/turnotrabajo"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.TurnoTrabajoService
+@using MudBlazor
+
+@inject ITurnoTrabajoService TurnoTrabajoServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+
+<h3 style="margin-bottom: 20px;">Turnos de Trabajo</h3>
+<a href="/turnotrabajo/agregar" class="btn btn-primary mt-2">Nuevo Turno de Trabajo</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Turnos de Trabajo Disponibles</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" Label="Buscar por Nombre o Descripción"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Error">Error al cargar los datos.</MudAlert>
+    }
+    else
+    {
+        <MudTable T="TurnoTrabajo"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Nombre del Turno</MudTh>
+                <MudTh>Hora Inicio</MudTh>
+                <MudTh>Hora Fin</MudTh>
+                <MudTh>Duración</MudTh>
+                <MudTh>Descripción</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.IdTurno</MudTd>
+                <MudTd DataLabel="Nombre">@context.NombreTurno</MudTd>
+                <MudTd DataLabel="Hora Inicio">@context.HoraInicio?.ToString("HH:mm")</MudTd>
+                <MudTd DataLabel="Hora Fin">@context.HoraFin?.ToString("HH:mm")</MudTd>
+                <MudTd DataLabel="Duración">
+                    @if (context.HoraInicio.HasValue && context.HoraFin.HasValue)
+                    {
+                        var duracion = context.HoraFin.Value - context.HoraInicio.Value;
+                        <text>@($"{duracion.Hours}h {duracion.Minutes}m")</text>
+                    }
+                    else
+                    {
+                        <text>-</text>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Descripción">
+                    @if (!string.IsNullOrEmpty(context.Descripcion))
+                    {
+                        @(context.Descripcion.Length > 50 ? context.Descripcion.Substring(0, 50) + "..." : context.Descripcion)
+                    }
+                    else
+                    {
+                        <text>-</text>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-grid gap-2 d-md-block">
+                        <a href="/turnotrabajo/agregar/@context.IdTurno" class="btn btn-warning">Editar</a>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Turnos por página:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 20, 25, 30, 40, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private MPaginatedResult<TurnoTrabajo> paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private DialogOptions dialogOptions = new() { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+    private const int PageSize = 25;
+    private string searchArea = "";
+    private List<TurnoTrabajo> turnos = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            paginatedResult = await TurnoTrabajoServices.GetPaginatedAsync(page, PageSize, searchArea);
+
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+
+    }
+
+    private async Task<TableData<TurnoTrabajo>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+
+            paginatedResult = await TurnoTrabajoServices.GetPaginatedAsync(page, pageSize, searchArea);
+
+
+            return new TableData<TurnoTrabajo>
+            {
+                Items = paginatedResult.Items,
+                TotalItems = paginatedResult.TotalCount
+            };
+        }
+        catch (Exception ex)
+        {
+
+            Console.WriteLine(ex.Message);
+            return new TableData<TurnoTrabajo>
+            {
+                Items = new List<TurnoTrabajo>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+
+    private async Task PrintTable()
+    {
+        await JSRuntime.InvokeVoidAsync("printTable");
+    }
+}

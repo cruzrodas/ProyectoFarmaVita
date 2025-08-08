@@ -3,38 +3,237 @@
         <a class="navbar-brand" href="">ProyectoFarmaVita</a>
     </div>
 </div>
-
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
+        <!-- INICIO -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
 
+        <!-- GESTIÓN DE PERSONAS - DESPLEGABLE -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
+            <div class="nav-section-toggle" onclick="toggleSection(event, 'personasSection')">
+                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span>
+                Gestión de Personas
+                <span class="bi bi-chevron-down collapse-arrow" id="personasArrow"></span>
+            </div>
+            <div class="nav-sub-section" id="personasSection">
+                <div class="nav-sub-menu">
+                    <NavLink class="nav-link nav-sub-link" href="personas">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Usuarios
+                    </NavLink>
+                    <NavLink class="nav-link nav-sub-link" href="estadocivil">
+                        <span class="bi bi-heart-fill-nav-menu" aria-hidden="true"></span> Estado Civil
+                    </NavLink>
+                    <NavLink class="nav-link nav-sub-link" href="Genero">
+                        <span class="bi bi-gender-ambiguous-nav-menu" aria-hidden="true"></span> Género
+                    </NavLink>
+                </div>
+            </div>
         </div>
 
+        <!-- GESTIÓN LABORAL - DESPLEGABLE -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
+            <div class="nav-section-toggle" onclick="toggleSection(event, 'laboralSection')">
+                <span class="bi bi-clock-fill-nav-menu" aria-hidden="true"></span>
+                Gestión Laboral
+                <span class="bi bi-chevron-down collapse-arrow" id="laboralArrow"></span>
+            </div>
+            <div class="nav-sub-section" id="laboralSection">
+                <div class="nav-sub-menu">
+                    <NavLink class="nav-link nav-sub-link" href="turnotrabajo">
+                        <span class="bi bi-clock-fill-nav-menu" aria-hidden="true"></span> Turno Trabajo
+                    </NavLink>
+                    <NavLink class="nav-link nav-sub-link" href="asignacion-turno">
+                        <span class="bi bi-calendar-check-fill-nav-menu" aria-hidden="true"></span> Asignación Turno
+                    </NavLink>
+                </div>
+            </div>
         </div>
+
+        <!-- UBICACIÓN GEOGRÁFICA - DESPLEGABLE -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="personas">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Usuarios
-            </NavLink>
+            <div class="nav-section-toggle" onclick="toggleSection(event, 'ubicacionSection')">
+                <span class="bi bi-map-fill-nav-menu" aria-hidden="true"></span>
+                Ubicación Geográfica
+                <span class="bi bi-chevron-down collapse-arrow" id="ubicacionArrow"></span>
+            </div>
+            <div class="nav-sub-section" id="ubicacionSection">
+                <div class="nav-sub-menu">
+                    <NavLink class="nav-link nav-sub-link" href="sucursal">
+                        <span class="bi bi-building-fill-nav-menu" aria-hidden="true"></span> Sucursales
+                    </NavLink>
+                    <NavLink class="nav-link nav-sub-link" href="departamento">
+                        <span class="bi bi-map-fill-nav-menu" aria-hidden="true"></span> Departamento
+                    </NavLink>
+                    <NavLink class="nav-link nav-sub-link" href="municipio">
+                        <span class="bi bi-geo-alt-fill-nav-menu" aria-hidden="true"></span> Municipio
+                    </NavLink>
+                </div>
+            </div>
         </div>
+
+        <!-- GESTIÓN DE PRODUCTOS - DESPLEGABLE -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="sucursales">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Sucursales
-            </NavLink>
+            <div class="nav-section-toggle" onclick="toggleSection(event, 'productosSection')">
+                <span class="bi bi-capsule-pill-nav-menu" aria-hidden="true"></span>
+                Gestión de Productos
+                <span class="bi bi-chevron-down collapse-arrow" id="productosArrow"></span>
+            </div>
+            <div class="nav-sub-section" id="productosSection">
+                <div class="nav-sub-menu">
+                    <NavLink class="nav-link nav-sub-link" href="categoria">
+                        <span class="bi bi-tags-fill-nav-menu" aria-hidden="true"></span> Categorías
+                    </NavLink>
+                    <NavLink class="nav-link nav-sub-link" href="proveedor">
+                        <span class="bi bi-truck-nav-menu" aria-hidden="true"></span> Proveedores
+                    </NavLink>
+                    <NavLink class="nav-link nav-sub-link" href="producto">
+                        <span class="bi bi-capsule-pill-nav-menu" aria-hidden="true"></span> Productos
+                    </NavLink>
+                </div>
+            </div>
         </div>
     </nav>
 </div>
 
+<style>
+    /* Estilos para el menú desplegable */
+    .nav-section-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 1rem;
+        color: #d7d7d7;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        width: 100%;
+        transition: all 0.3s ease;
+        user-select: none;
+    }
+
+        .nav-section-toggle:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+    .collapse-arrow {
+        transition: transform 0.3s ease;
+        font-size: 0.8rem;
+        margin-left: auto;
+    }
+
+        .collapse-arrow.rotated {
+            transform: rotate(180deg);
+        }
+
+    .nav-sub-section {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+
+        .nav-sub-section.expanded {
+            max-height: 500px;
+        }
+
+    .nav-sub-menu {
+        padding-left: 1rem;
+        border-left: 2px solid rgba(255, 255, 255, 0.1);
+        margin-left: 1rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .nav-sub-link {
+        padding: 0.375rem 1rem !important;
+        font-size: 0.9rem;
+        color: #b3b3b3 !important;
+        transition: all 0.3s ease;
+        display: block;
+    }
+
+        .nav-sub-link:hover {
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding-left: 1.25rem !important;
+        }
+
+        .nav-sub-link.active {
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+    /* Espaciado entre secciones */
+    .nav-item {
+        margin-bottom: 0.25rem;
+    }
+
+    /* Prevenir la propagación del click en el nav-scrollable */
+    .nav-section-toggle {
+        position: relative;
+        z-index: 10;
+    }
+</style>
+
+<script>
+    function toggleSection(event, sectionId) {
+        // Prevenir la propagación del evento para que no cierre el menú principal
+        event.stopPropagation();
+
+        const section = document.getElementById(sectionId);
+        const arrow = document.getElementById(sectionId.replace('Section', 'Arrow'));
+
+        // Cerrar todas las otras secciones
+        const allSections = document.querySelectorAll('.nav-sub-section');
+        const allArrows = document.querySelectorAll('.collapse-arrow');
+
+        allSections.forEach(otherSection => {
+            if (otherSection.id !== sectionId) {
+                otherSection.classList.remove('expanded');
+            }
+        });
+
+        allArrows.forEach(otherArrow => {
+            if (otherArrow.id !== arrow.id) {
+                otherArrow.classList.remove('rotated');
+            }
+        });
+
+        // Toggle la sección actual
+        section.classList.toggle('expanded');
+        arrow.classList.toggle('rotated');
+    }
+
+    // Función para cerrar todos los menús desplegables cuando se hace click fuera
+    document.addEventListener('click', function(event) {
+        const navScrollable = document.querySelector('.nav-scrollable');
+        const toggles = document.querySelectorAll('.nav-section-toggle');
+
+        // Si el click no es en un toggle, cerrar todos los menús
+        let isToggleClick = false;
+        toggles.forEach(toggle => {
+            if (toggle.contains(event.target)) {
+                isToggleClick = true;
+            }
+        });
+
+        if (!isToggleClick && !event.target.closest('.nav-sub-menu')) {
+            const allSections = document.querySelectorAll('.nav-sub-section');
+            const allArrows = document.querySelectorAll('.collapse-arrow');
+
+            allSections.forEach(section => {
+                section.classList.remove('expanded');
+            });
+
+            allArrows.forEach(arrow => {
+                arrow.classList.remove('rotated');
+            });
+        }
+    });
+</script>

@@ -1,0 +1,163 @@
+﻿@page "/estadocivil"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.EstadoCivilServices
+@using MudBlazor
+
+@inject IEstadoCivil EstadoCivilServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+
+<h3 style="margin-bottom: 20px;">Estado Civil</h3>
+<a href="/estadocivil/agregar" class="btn btn-primary mt-2">Nuevo Estado Civil</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Estado Civil Disponibles</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" Label="Buscar por Estado"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Error">Error al cargar los datos.</MudAlert>
+    }
+    else
+    {
+        <MudTable T="EstadoCivil"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID Estado Civil</MudTh>
+                <MudTh>Estado Civil</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Participacion">@context.IdEstadoCivil</MudTd>
+                <MudTd DataLabel="Participacion">@context.EstadoCivil1</MudTd>
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-grid gap-2 d-md-block">
+                        <a href="/estadocivil/agregar/@context.IdEstadoCivil" class="btn btn-warning">Editar</a>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Carnets por pagina:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 20, 25, 30, 40, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private MPaginatedResult<EstadoCivil> paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private DialogOptions dialogOptions = new() { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+    private const int PageSize = 25;
+    private string searchArea = "";
+    private List<EstadoCivil> estadocivil = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            paginatedResult = await EstadoCivilServices.GetPaginatedAsync(page, PageSize, searchArea);
+
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+
+    }
+
+    private async Task<TableData<EstadoCivil>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+
+            paginatedResult = await EstadoCivilServices.GetPaginatedAsync(page, pageSize, searchArea);
+
+
+            return new TableData<EstadoCivil>
+            {
+                Items = paginatedResult.Items,
+                TotalItems = paginatedResult.TotalCount
+            };
+        }
+        catch (Exception ex)
+        {
+
+            Console.WriteLine(ex.Message);
+            return new TableData<EstadoCivil>
+            {
+                Items = new List<EstadoCivil>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+
+    private async Task PrintTable()
+    {
+        await JSRuntime.InvokeVoidAsync("printTable");
+    }
+}
+

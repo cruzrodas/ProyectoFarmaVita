@@ -225,7 +225,7 @@
 						<!-- Información de Contacto -->
 						<MudItem xs="12">
 							<MudExpansionPanels Elevation="2" Class="mb-4">
-								<MudExpansionPanel Icon="@Icons.Material.Filled.ContactPhone" Text="Información de Contacto">
+								<MudExpansionPanel Icon="@Icons.Material.Filled.ContactPhone" Text="Información de Contacto" IsInitiallyExpanded="true">
 									<MudGrid>
 										<MudItem xs="12" sm="6">
 											<MudTextField @bind-Value="telefonoString"
@@ -240,14 +240,53 @@
 														  HelperText="Ingrese 8 dígitos (ej: 12345678)" />
 										</MudItem>
 										<MudItem xs="12" sm="6">
-											<!-- Aquí podrías agregar campos de dirección si los tienes -->
-											<MudTextField Value="@("Dirección (pendiente de implementar)")"
-														  Label="Dirección"
-														  Disabled="true"
+											<MudSelect Value="departamentoSeleccionado"
+													   Label="Departamento"
+													   Clearable="true"
+													   Adornment="Adornment.Start"
+													   AdornmentIcon="@Icons.Material.Filled.Map"
+													   Class="form-field"
+													   T="int?"
+													   ValueChanged="@OnDepartamentoChanged">
+												<MudSelectItem Value="@((int?)null)">Seleccionar departamento</MudSelectItem>
+												@if (departamentos?.Any() == true)
+												{
+													@foreach (var depto in departamentos)
+													{
+														<MudSelectItem Value="@((int?)depto.IdDepartamento)">@depto.NombreDepartamento</MudSelectItem>
+													}
+												}
+											</MudSelect>
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudSelect @bind-Value="municipioSeleccionado"
+													   Label="Municipio"
+													   Clearable="true"
+													   Disabled="@(!departamentoSeleccionado.HasValue)"
+													   Adornment="Adornment.Start"
+													   AdornmentIcon="@Icons.Material.Filled.LocationCity"
+													   Class="form-field"
+													   T="int?">
+												<MudSelectItem Value="@((int?)null)">Seleccionar municipio</MudSelectItem>
+												@if (municipiosFiltrados?.Any() == true)
+												{
+													@foreach (var municipio in municipiosFiltrados)
+													{
+														<MudSelectItem Value="@((int?)municipio.IdMunicipio)">@municipio.NombreMunicipio</MudSelectItem>
+													}
+												}
+											</MudSelect>
+										</MudItem>
+										<MudItem xs="12" sm="6">
+											<MudTextField @bind-Value="direccionTexto"
+														  Label="Dirección Específica"
+														  MaxLength="200"
+														  Counter="200"
+														  Lines="2"
 														  Adornment="Adornment.Start"
-														  AdornmentIcon="@Icons.Material.Filled.LocationOn"
+														  AdornmentIcon="@Icons.Material.Filled.Home"
 														  Class="form-field"
-														  HelperText="Funcionalidad por implementar" />
+														  HelperText="Ejemplo: 5ta Avenida 12-34, Zona 10" />
 										</MudItem>
 									</MudGrid>
 								</MudExpansionPanel>
@@ -455,6 +494,11 @@
 	private List<Genero> generos = new();
 	private List<EstadoCivil> estadosCiviles = new();
 
+	// Nuevos para dirección
+	private List<Departamento> departamentos = new();
+	private List<Municipio> municipios = new();
+	private List<Municipio> municipiosFiltrados = new();
+
 	// Campos auxiliares para validación y conversión
 	private string dpiString = "";
 	private string nitString = "";
@@ -462,6 +506,11 @@
 	private string confirmarContraseña = "";
 	private DateTime? fechaNacimiento;
 	private double? salarioDouble;
+
+	// Nuevos campos para dirección
+	private string direccionTexto = "";
+	private int? departamentoSeleccionado;
+	private int? municipioSeleccionado;
 
 	// UI State
 	private bool loading = false;
@@ -510,7 +559,8 @@
 			CargarRoles(),
 			CargarSucursales(),
 			CargarGeneros(),
-			CargarEstadosCiviles()
+			CargarEstadosCiviles(),
+			CargarDepartamentos()
 		};
 
 		await Task.WhenAll(tasks);
@@ -539,7 +589,6 @@
 		{
 			Console.WriteLine($"Error cargando sucursales: {ex.Message}");
 			sucursales = new List<Sucursal>();
-			// Si hay error cargando sucursales, mostrar un mensaje pero permitir continuar
 			Snackbar.Add("No se pudieron cargar las sucursales. Puede continuar sin asignar sucursal.", Severity.Warning);
 		}
 	}
@@ -570,6 +619,38 @@
 		}
 	}
 
+	private async Task CargarDepartamentos()
+	{
+		try
+		{
+			departamentos = await PersonaService.GetDepartamentosAsync() ?? new List<Departamento>();
+			municipios = await PersonaService.GetMunicipiosAsync() ?? new List<Municipio>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error cargando departamentos: {ex.Message}");
+			departamentos = new List<Departamento>();
+			municipios = new List<Municipio>();
+		}
+	}
+
+	private async Task OnDepartamentoChanged(int? departamentoId)
+	{
+		departamentoSeleccionado = departamentoId;
+		municipioSeleccionado = null;
+
+		if (departamentoId.HasValue)
+		{
+			municipiosFiltrados = municipios.Where(m => m.IdDepartamento == departamentoId.Value).ToList();
+		}
+		else
+		{
+			municipiosFiltrados = new List<Municipio>();
+		}
+
+		StateHasChanged();
+	}
+
 	private async Task CargarPersona()
 	{
 		if (!IdPersona.HasValue) return;
@@ -595,6 +676,25 @@
 			if (persona.IdTelefonoNavigation?.NumeroTelefonico.HasValue == true)
 			{
 				telefonoString = persona.IdTelefonoNavigation.NumeroTelefonico.ToString();
+			}
+
+			// Cargar dirección si existe
+			if (persona.IdDireccionNavigation != null)
+			{
+				direccionTexto = persona.IdDireccionNavigation.Direccion1 ?? "";
+
+				if (persona.IdDireccionNavigation.IdMunicipio.HasValue)
+				{
+					municipioSeleccionado = persona.IdDireccionNavigation.IdMunicipio.Value;
+
+					// Encontrar el departamento del municipio
+					var municipio = municipios.FirstOrDefault(m => m.IdMunicipio == municipioSeleccionado);
+					if (municipio?.IdDepartamento.HasValue == true)
+					{
+						departamentoSeleccionado = municipio.IdDepartamento.Value;
+						await OnDepartamentoChanged(departamentoSeleccionado);
+					}
+				}
 			}
 
 			// Convertir fecha de nacimiento
@@ -637,8 +737,8 @@
 				persona.FechaNacimiento = DateOnly.FromDateTime(fechaNacimiento.Value);
 			}
 
-			// Manejar teléfono
-			await ManejarTelefono();
+			// Manejar teléfono y dirección
+			await ManejarTelefonoYDireccion();
 
 			bool resultado;
 			if (EsEdicion)
@@ -700,11 +800,11 @@
 			bool dpiExiste;
 			if (EsEdicion)
 			{
-				dpiExiste = await PersonaService.ExistsByDpiExcludingIdAsync((int)dpi, persona.IdPersona);
+				dpiExiste = await PersonaService.ExistsByDpiExcludingIdAsync(dpi, persona.IdPersona);
 			}
 			else
 			{
-				dpiExiste = await PersonaService.ExistsByDpiAsync((int)dpi);
+				dpiExiste = await PersonaService.ExistsByDpiAsync(dpi);
 			}
 
 			if (dpiExiste)
@@ -722,7 +822,7 @@
 		// Convertir DPI
 		if (!string.IsNullOrEmpty(dpiString) && long.TryParse(dpiString, out var dpi))
 		{
-			persona.Dpi = (int)dpi;
+			persona.Dpi = dpi;
 		}
 		else
 		{
@@ -732,7 +832,7 @@
 		// Convertir NIT
 		if (!string.IsNullOrEmpty(nitString) && long.TryParse(nitString, out var nit))
 		{
-			persona.Nit = (int)nit;
+			persona.Nit = nit;
 		}
 		else
 		{
@@ -743,14 +843,61 @@
 		persona.Salario = salarioDouble;
 	}
 
-	private async Task ManejarTelefono()
+	private async Task ManejarTelefonoYDireccion()
 	{
-		// Nota: Esta es una implementación simplificada
-		// En un sistema real, deberías manejar la creación/actualización de teléfonos por separado
-		if (!string.IsNullOrEmpty(telefonoString) && int.TryParse(telefonoString, out var numeroTelefono))
+		try
 		{
-			// Aquí podrías implementar la lógica para crear/actualizar el teléfono
-			// Por ahora, asumimos que ya tienes un IdTelefono válido
+			// Manejar teléfono
+			if (!string.IsNullOrEmpty(telefonoString) && int.TryParse(telefonoString, out var numeroTelefono))
+			{
+				// Si ya tiene un teléfono, actualizar
+				if (persona.IdTelefono.HasValue)
+				{
+					var telefonoId = await PersonaService.UpdateTelefonoAsync(persona.IdTelefono.Value, numeroTelefono);
+					persona.IdTelefono = telefonoId;
+				}
+				else
+				{
+					// Crear nuevo teléfono
+					var telefonoId = await PersonaService.CreateTelefonoAsync(numeroTelefono);
+					persona.IdTelefono = telefonoId;
+				}
+			}
+			else if (string.IsNullOrEmpty(telefonoString) && persona.IdTelefono.HasValue && !EsEdicion)
+			{
+				// Si no hay teléfono y no es edición, limpiar referencia
+				persona.IdTelefono = null;
+			}
+
+			// Manejar dirección
+			if (!string.IsNullOrEmpty(direccionTexto) && municipioSeleccionado.HasValue)
+			{
+				// Si ya tiene una dirección, actualizar
+				if (persona.IdDireccion.HasValue)
+				{
+					var direccionId = await PersonaService.UpdateDireccionAsync(
+						persona.IdDireccion.Value,
+						direccionTexto,
+						municipioSeleccionado.Value);
+					persona.IdDireccion = direccionId;
+				}
+				else
+				{
+					// Crear nueva dirección
+					var direccionId = await PersonaService.CreateDireccionAsync(direccionTexto, municipioSeleccionado.Value);
+					persona.IdDireccion = direccionId;
+				}
+			}
+			else if ((string.IsNullOrEmpty(direccionTexto) || !municipioSeleccionado.HasValue) && persona.IdDireccion.HasValue && !EsEdicion)
+			{
+				// Si no hay dirección completa y no es edición, limpiar referencia
+				persona.IdDireccion = null;
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error en ManejarTelefonoYDireccion: {ex.Message}");
+			Snackbar.Add($"Error al procesar teléfono y dirección: {ex.Message}", Severity.Warning);
 		}
 	}
 

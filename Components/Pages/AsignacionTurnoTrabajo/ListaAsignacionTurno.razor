@@ -1,0 +1,529 @@
+﻿@page "/asignacion-turno"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.AsignacionTurnoServices
+@using ProyectoFarmaVita.Services.PersonaServices
+@using ProyectoFarmaVita.Services.SucursalServices
+@using ProyectoFarmaVita.Services.TurnoTrabajoService
+@using MudBlazor
+
+@inject IAsignacionTurnoService AsignacionTurnoServices
+@inject IPersonaService PersonaServices
+@inject ISucursalService SucursalServices
+@inject ITurnoTrabajoService TurnoTrabajoServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">Asignaciones de Turno</h3>
+<a href="/asignacion-turno/agregar" class="btn btn-primary mt-2">Nueva Asignación</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Asignaciones de Turno</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="3">
+            <MudTextField T="string" Label="Buscar por Nombre"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+
+        <MudItem xs="12" sm="3">
+            <MudSelect T="int?"
+                       Label="Filtrar por Persona"
+                       @bind-Value="selectedPersonaId"
+                       Variant="Variant.Outlined"
+                       Clearable="true"
+                       OnClearButtonClick="ClearPersonaFilter">
+                <MudSelectItem Value="@((int?)null)">Todas las personas</MudSelectItem>
+                @if (personas != null)
+                {
+                    @foreach (var persona in personas)
+                    {
+                        <MudSelectItem Value="@((int?)persona.IdPersona)">@($"{persona.Nombre} {persona.Apellido}")</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="3">
+            <MudSelect T="int?"
+                       Label="Filtrar por Sucursal"
+                       @bind-Value="selectedSucursalId"
+                       Variant="Variant.Outlined"
+                       Clearable="true"
+                       OnClearButtonClick="ClearSucursalFilter">
+                <MudSelectItem Value="@((int?)null)">Todas las sucursales</MudSelectItem>
+                @if (sucursales != null)
+                {
+                    @foreach (var sucursal in sucursales)
+                    {
+                        <MudSelectItem Value="@((int?)sucursal.IdSucursal)">@sucursal.NombreSucursal</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="3" Class="d-flex align-center">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FilterList"
+                       OnClick="ApplyFilters">
+                Filtrar
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearFilters"
+                       Class="ml-2">
+                Limpiar
+            </MudButton>
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudDatePicker Label="Fecha de Inicio"
+                           @bind-Date="fechaInicioFiltro"
+                           Variant="Variant.Outlined"
+                           DateFormat="dd/MM/yyyy"
+                           Clearable="true" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudDatePicker Label="Fecha de Fin"
+                           @bind-Date="fechaFinFiltro"
+                           Variant="Variant.Outlined"
+                           DateFormat="dd/MM/yyyy"
+                           Clearable="true" />
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Error">Error al cargar los datos.</MudAlert>
+    }
+    else
+    {
+        <MudTable T="AsignacionTurno"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Persona</MudTh>
+                <MudTh>Sucursal</MudTh>
+                <MudTh>Turno</MudTh>
+                <MudTh>Horario</MudTh>
+                <MudTh>Fecha Inicio</MudTh>
+                <MudTh>Fecha Fin</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.IdAsignacion</MudTd>
+                <MudTd DataLabel="Persona">@($"{context.IdPersonaNavigation?.Nombre} {context.IdPersonaNavigation?.Apellido}")</MudTd>
+                <MudTd DataLabel="Sucursal">@context.IdSucursalNavigation?.NombreSucursal</MudTd>
+                <MudTd DataLabel="Turno">@context.IdTurnoNavigation?.NombreTurno</MudTd>
+                <MudTd DataLabel="Horario">
+                    @if (context.IdTurnoNavigation != null)
+                    {
+                        @($"{context.IdTurnoNavigation.HoraInicio:HH:mm} - {context.IdTurnoNavigation.HoraFin:HH:mm}")
+                    }
+                </MudTd>
+                <MudTd DataLabel="Fecha Inicio">@context.FechaInicio?.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd DataLabel="Fecha Fin">@context.FechaFin?.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-grid gap-2 d-md-block">
+                        <a href="/asignacion-turno/agregar/@context.IdAsignacion" class="btn btn-warning btn-sm">Editar</a>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   OnClick="@(() => ConfirmDelete(context.IdAsignacion))">
+                            Eliminar
+                        </MudButton>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Asignaciones por página:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 20, 25, 30, 40, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private MPaginatedResult<AsignacionTurno> paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private DialogOptions dialogOptions = new() { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+    private const int PageSize = 25;
+    private string searchArea = "";
+    private List<AsignacionTurno> asignaciones = new();
+    private List<Persona> personas = new();
+    private List<Sucursal> sucursales = new();
+    private int? selectedPersonaId = null;
+    private int? selectedSucursalId = null;
+    private DateTime? fechaInicioFiltro = null;
+    private DateTime? fechaFinFiltro = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDropdownData();
+        await LoadPage(1);
+    }
+
+    private async Task LoadDropdownData()
+    {
+        try
+        {
+            await LoadPersonas();
+            await LoadSucursales();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar datos dropdown: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPersonas()
+    {
+        try
+        {
+            personas = await PersonaServices.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar personas: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSucursales()
+    {
+        try
+        {
+            sucursales = await SucursalServices.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar sucursales: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            if (selectedPersonaId.HasValue)
+            {
+                // Filtrar por persona
+                var asignacionesByPersona = await AsignacionTurnoServices.GetByPersonaAsync(selectedPersonaId.Value);
+                
+                // Aplicar filtros adicionales
+                asignacionesByPersona = ApplyAdditionalFilters(asignacionesByPersona);
+
+                // Crear resultado paginado manual
+                var totalItems = asignacionesByPersona.Count;
+                var items = asignacionesByPersona
+                    .Skip((page - 1) * PageSize)
+                    .Take(PageSize)
+                    .ToList();
+
+                paginatedResult = new MPaginatedResult<AsignacionTurno>
+                {
+                    Items = items,
+                    TotalCount = totalItems,
+                    PageNumber = page,
+                    PageSize = PageSize
+                };
+            }
+            else if (selectedSucursalId.HasValue)
+            {
+                // Filtrar por sucursal
+                var asignacionesBySucursal = await AsignacionTurnoServices.GetBySucursalAsync(selectedSucursalId.Value);
+                
+                // Aplicar filtros adicionales
+                asignacionesBySucursal = ApplyAdditionalFilters(asignacionesBySucursal);
+
+                // Crear resultado paginado manual
+                var totalItems = asignacionesBySucursal.Count;
+                var items = asignacionesBySucursal
+                    .Skip((page - 1) * PageSize)
+                    .Take(PageSize)
+                    .ToList();
+
+                paginatedResult = new MPaginatedResult<AsignacionTurno>
+                {
+                    Items = items,
+                    TotalCount = totalItems,
+                    PageNumber = page,
+                    PageSize = PageSize
+                };
+            }
+            else
+            {
+                // Sin filtros específicos, usar paginación normal
+                paginatedResult = await AsignacionTurnoServices.GetPaginatedAsync(page, PageSize, searchArea);
+                
+                // Aplicar filtros de fecha si existen
+                if (fechaInicioFiltro.HasValue || fechaFinFiltro.HasValue)
+                {
+                    var allItems = paginatedResult.Items.ToList();
+                    allItems = ApplyDateFilters(allItems);
+                    
+                    paginatedResult.Items = allItems;
+                    paginatedResult.TotalCount = allItems.Count;
+                }
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<AsignacionTurno> ApplyAdditionalFilters(List<AsignacionTurno> asignaciones)
+    {
+        // Aplicar filtro de búsqueda
+        if (!string.IsNullOrEmpty(searchArea))
+        {
+            asignaciones = asignaciones.Where(a =>
+                (a.IdPersonaNavigation != null && 
+                 (a.IdPersonaNavigation.Nombre.Contains(searchArea, StringComparison.OrdinalIgnoreCase) ||
+                  a.IdPersonaNavigation.Apellido.Contains(searchArea, StringComparison.OrdinalIgnoreCase))) ||
+                (a.IdSucursalNavigation != null && 
+                 a.IdSucursalNavigation.NombreSucursal.Contains(searchArea, StringComparison.OrdinalIgnoreCase)) ||
+                (a.IdTurnoNavigation != null && 
+                 a.IdTurnoNavigation.NombreTurno.Contains(searchArea, StringComparison.OrdinalIgnoreCase))
+            ).ToList();
+        }
+
+        // Aplicar filtros de fecha
+        asignaciones = ApplyDateFilters(asignaciones);
+
+        return asignaciones;
+    }
+
+    private List<AsignacionTurno> ApplyDateFilters(List<AsignacionTurno> asignaciones)
+    {
+        if (fechaInicioFiltro.HasValue)
+        {
+            var fechaInicio = DateOnly.FromDateTime(fechaInicioFiltro.Value);
+            asignaciones = asignaciones.Where(a => a.FechaInicio >= fechaInicio).ToList();
+        }
+
+        if (fechaFinFiltro.HasValue)
+        {
+            var fechaFin = DateOnly.FromDateTime(fechaFinFiltro.Value);
+            asignaciones = asignaciones.Where(a => a.FechaFin <= fechaFin).ToList();
+        }
+
+        return asignaciones;
+    }
+
+    private async Task<TableData<AsignacionTurno>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+            if (selectedPersonaId.HasValue)
+            {
+                var asignacionesByPersona = await AsignacionTurnoServices.GetByPersonaAsync(selectedPersonaId.Value);
+                asignacionesByPersona = ApplyAdditionalFilters(asignacionesByPersona);
+
+                var totalItems = asignacionesByPersona.Count;
+                var items = asignacionesByPersona
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new TableData<AsignacionTurno>
+                {
+                    Items = items,
+                    TotalItems = totalItems
+                };
+            }
+            else if (selectedSucursalId.HasValue)
+            {
+                var asignacionesBySucursal = await AsignacionTurnoServices.GetBySucursalAsync(selectedSucursalId.Value);
+                asignacionesBySucursal = ApplyAdditionalFilters(asignacionesBySucursal);
+
+                var totalItems = asignacionesBySucursal.Count;
+                var items = asignacionesBySucursal
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new TableData<AsignacionTurno>
+                {
+                    Items = items,
+                    TotalItems = totalItems
+                };
+            }
+            else
+            {
+                paginatedResult = await AsignacionTurnoServices.GetPaginatedAsync(page, pageSize, searchArea);
+                
+                var items = paginatedResult.Items.ToList();
+                if (fechaInicioFiltro.HasValue || fechaFinFiltro.HasValue)
+                {
+                    items = ApplyDateFilters(items);
+                }
+
+                return new TableData<AsignacionTurno>
+                {
+                    Items = items,
+                    TotalItems = items.Count
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new TableData<AsignacionTurno>
+            {
+                Items = new List<AsignacionTurno>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ApplyFilters()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ClearFilters()
+    {
+        searchArea = "";
+        selectedPersonaId = null;
+        selectedSucursalId = null;
+        fechaInicioFiltro = null;
+        fechaFinFiltro = null;
+        await LoadPage(1);
+    }
+
+    private async Task ClearPersonaFilter()
+    {
+        selectedPersonaId = null;
+        await LoadPage(1);
+    }
+
+    private async Task ClearSucursalFilter()
+    {
+        selectedSucursalId = null;
+        await LoadPage(1);
+    }
+
+    private string GetEstadoAsignacion(AsignacionTurno asignacion, DateOnly fechaHoy)
+    {
+        if (!asignacion.FechaInicio.HasValue)
+            return "Sin fecha";
+
+        if (asignacion.FechaFin.HasValue)
+        {
+            if (fechaHoy < asignacion.FechaInicio.Value)
+                return "Programado";
+            else if (fechaHoy >= asignacion.FechaInicio.Value && fechaHoy <= asignacion.FechaFin.Value)
+                return "Activo";
+            else
+                return "Finalizado";
+        }
+        else
+        {
+            if (fechaHoy < asignacion.FechaInicio.Value)
+                return "Programado";
+            else
+                return "Activo";
+        }
+    }
+
+    private Color GetColorEstado(string estado)
+    {
+        return estado switch
+        {
+            "Programado" => Color.Info,
+            "Activo" => Color.Success,
+            "Finalizado" => Color.Default,
+            "Sin fecha" => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private async Task ConfirmDelete(int idAsignacion)
+    {
+        var dialog = await DialogService.ShowMessageBox(
+            "Confirmar eliminación",
+            "¿Está seguro que desea eliminar esta asignación de turno?",
+            yesText: "Eliminar",
+            cancelText: "Cancelar");
+
+        if (dialog == true)
+        {
+            await DeleteAsignacion(idAsignacion);
+        }
+    }
+
+    private async Task DeleteAsignacion(int idAsignacion)
+    {
+        try
+        {
+            var result = await AsignacionTurnoServices.DeleteAsync(idAsignacion);
+            if (result)
+            {
+                await LoadPage(1);
+                // Aquí podrías agregar una notificación de éxito
+                // Snackbar.Add("Asignación eliminada correctamente", Severity.Success);
+            }
+            else
+            {
+                // Snackbar.Add("Error al eliminar la asignación", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al eliminar: {ex.Message}");
+            // Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+}

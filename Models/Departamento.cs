@@ -9,5 +9,7 @@ public partial class Departamento
 
     public string? NombreDepartamento { get; set; }
 
+    public bool? Activo { get; set; }
+
     public virtual ICollection<Municipio> Municipio { get; set; } = new List<Municipio>();
 }

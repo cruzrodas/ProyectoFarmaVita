@@ -1,0 +1,243 @@
+﻿@page "/turnotrabajo/agregar"
+@page "/turnotrabajo/agregar/{IdTurno:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.TurnoTrabajoService
+@using MudBlazor
+
+@inject ITurnoTrabajoService TurnoTrabajoServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdTurno.HasValue ? "Editar Turno de Trabajo" : "Nuevo Turno de Trabajo")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdTurno.HasValue ? "Editar Turno de Trabajo" : "Agregar Nuevo Turno de Trabajo")
+    </MudText>
+
+    <EditForm Model="turnoTrabajo" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Nombre del Turno"
+                              @bind-Value="turnoTrabajo.NombreTurno"
+                              For="@(() => turnoTrabajo.NombreTurno)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre del turno es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              HelperText="Ej: Turno Mañana, Turno Tarde, Turno Noche"
+                              Immediate="true" />
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudTimePicker Label="Hora de Inicio"
+                               @bind-Time="horaInicioTime"
+                               Variant="Variant.Outlined"
+                               TimeFormat="HH:mm"
+                               Required="true"
+                               RequiredError="La hora de inicio es requerida" />
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudTimePicker Label="Hora de Fin"
+                               @bind-Time="horaFinTime"
+                               Variant="Variant.Outlined"
+                               TimeFormat="HH:mm"
+                               Required="true"
+                               RequiredError="La hora de fin es requerida" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField Label="Descripción"
+                              @bind-Value="turnoTrabajo.Descripcion"
+                              For="@(() => turnoTrabajo.Descripcion)"
+                              Variant="Variant.Outlined"
+                              Lines="3"
+                              MaxLength="500"
+                              Counter="500"
+                              HelperText="Descripción opcional del turno de trabajo"
+                              Immediate="true" />
+            </MudItem>
+
+            @if (horaInicioTime.HasValue && horaFinTime.HasValue)
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Info">
+                        <strong>Información del Turno:</strong>
+                        <br />
+                        <strong>Hora de Inicio:</strong> @horaInicioTime.Value.ToString(@"hh\:mm")
+                        <br />
+                        <strong>Hora de Fin:</strong> @horaFinTime.Value.ToString(@"hh\:mm")
+                        <br />
+                        <strong>Duración:</strong> @CalcularDuracion()
+                        @if (ValidarHorarios())
+                        {
+                            <br />
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+
+                            <text>Horario válido</text>
+                        }
+                        else
+                        {
+                            <br />
+                            <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" />
+                            <strong style="color: red;">Error: La hora de fin debe ser posterior a la hora de inicio</strong>
+                        }
+                    </MudAlert>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/turnotrabajo"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(isSubmitting || !ValidarHorarios())">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdTurno.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdTurno { get; set; }
+
+    private ProyectoFarmaVita.Models.TurnoTrabajo turnoTrabajo = new ProyectoFarmaVita.Models.TurnoTrabajo();
+    private bool isSubmitting = false;
+
+    // Variables auxiliares para los TimePickers
+    private TimeSpan? horaInicioTime;
+    private TimeSpan? horaFinTime;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Cargar turno si es edición
+        if (IdTurno.HasValue)
+        {
+            try
+            {
+                turnoTrabajo = await TurnoTrabajoServices.GetByIdAsync(IdTurno.Value);
+
+                // Convertir DateTime a TimeSpan para los TimePickers
+                if (turnoTrabajo.HoraInicio.HasValue)
+                {
+                    horaInicioTime = turnoTrabajo.HoraInicio.Value.TimeOfDay;
+                }
+
+                if (turnoTrabajo.HoraFin.HasValue)
+                {
+                    horaFinTime = turnoTrabajo.HoraFin.Value.TimeOfDay;
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al cargar el turno de trabajo: {ex.Message}", Severity.Error);
+                NavigationManager.NavigateTo("/turnotrabajo");
+            }
+        }
+        else
+        {
+            turnoTrabajo = new TurnoTrabajo();
+        }
+    }
+
+    private bool ValidarHorarios()
+    {
+        if (!horaInicioTime.HasValue || !horaFinTime.HasValue)
+            return false;
+
+        return horaFinTime.Value > horaInicioTime.Value;
+    }
+
+    private string CalcularDuracion()
+    {
+        if (!horaInicioTime.HasValue || !horaFinTime.HasValue)
+            return "N/A";
+
+        var duracion = horaFinTime.Value - horaInicioTime.Value;
+        if (duracion.TotalMinutes < 0)
+            return "Horario inválido";
+
+        var horas = (int)duracion.TotalHours;
+        var minutos = duracion.Minutes;
+
+        if (horas > 0 && minutos > 0)
+            return $"{horas}h {minutos}m";
+        else if (horas > 0)
+            return $"{horas}h";
+        else
+            return $"{minutos}m";
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (!ValidarHorarios())
+        {
+            Snackbar.Add("Por favor, verifica que la hora de fin sea posterior a la hora de inicio", Severity.Error);
+            return;
+        }
+
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Convertir TimeSpan a DateTime antes de guardar
+            var fechaBase = DateTime.Today;
+
+            if (horaInicioTime.HasValue)
+            {
+                turnoTrabajo.HoraInicio = fechaBase.Add(horaInicioTime.Value);
+            }
+
+            if (horaFinTime.HasValue)
+            {
+                turnoTrabajo.HoraFin = fechaBase.Add(horaFinTime.Value);
+            }
+
+            var result = await TurnoTrabajoServices.AddUpdateAsync(turnoTrabajo);
+
+            if (result)
+            {
+                var message = IdTurno.HasValue ? "Turno de trabajo actualizado correctamente" : "Turno de trabajo creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/turnotrabajo");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el turno de trabajo", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,652 @@
+﻿@page "/producto/agregar"
+@page "/producto/agregar/{IdProducto:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.ProductoService
+@using ProyectoFarmaVita.Services.CategoriaProductoService
+@using ProyectoFarmaVita.Services.ProveedorServices
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+
+@inject IProductoService ProductoServices
+@inject ICategoriaService CategoriaServices
+@inject IProveedorService ProveedorServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<h3 style="margin-bottom: 20px;">@(IdProducto.HasValue ? "Editar Producto" : "Nuevo Producto")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdProducto.HasValue ? "Editar Producto" : "Agregar Nuevo Producto")
+    </MudText>
+
+    <EditForm Model="productoForm" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <!-- Información básica del producto -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-2">Información del Producto</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Nombre del Producto"
+                              @bind-Value="productoForm.NombreProducto"
+                              For="@(() => productoForm.NombreProducto)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre del producto es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true"
+                              OnBlur="ValidateNombreProducto" />
+
+                @if (!string.IsNullOrEmpty(nombreValidationMessage))
+                {
+                    <MudText Color="Color.Error" Typo="Typo.body2" Class="mt-1">@nombreValidationMessage</MudText>
+                }
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Unidad de Medida"
+                              @bind-Value="producto.UnidadMedida"
+                              Variant="Variant.Outlined"
+                              MaxLength="50"
+                              HelperText="Ej: mg, ml, tabletas, cápsulas" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField Label="Descripción del Producto"
+                              @bind-Value="productoForm.DescrpcionProducto"
+                              For="@(() => productoForm.DescrpcionProducto)"
+                              Variant="Variant.Outlined"
+                              Lines="3"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true" />
+            </MudItem>
+
+            <!-- Precios -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Información de Precios</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudNumericField T="double?"
+                                 Label="Precio de Compra"
+                                 @bind-Value="producto.PrecioCompra"
+                                 Variant="Variant.Outlined"
+                                 Format="F2"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="Q"
+                                 Min="0" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudNumericField T="double?"
+                                 Label="Precio de Venta"
+                                 @bind-Value="producto.PrecioVenta"
+                                 Variant="Variant.Outlined"
+                                 Format="F2"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="Q"
+                                 Min="0" />
+            </MudItem>
+
+            <!-- Categorización -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Categorización</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Categoría"
+                           @bind-Value="producto.IdCategoria"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           RequiredError="Debe seleccionar una categoría">
+                    @if (categorias != null)
+                    {
+                        @foreach (var categoria in categorias)
+                        {
+                            <MudSelectItem T="int?" Value="@categoria.IdCategoria">@categoria.NombreCategoria</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Proveedor"
+                           @bind-Value="producto.IdProveedor"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           RequiredError="Debe seleccionar un proveedor">
+                    @if (proveedores != null)
+                    {
+                        @foreach (var proveedor in proveedores)
+                        {
+                            <MudSelectItem T="int?" Value="@proveedor.IdProveedor">@proveedor.NombreProveedor</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <!-- Fechas -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Fechas</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker Label="Fecha de Compra"
+                               @bind-Date="fechaCompraDateTime"
+                               Variant="Variant.Outlined"
+                               DateFormat="dd/MM/yyyy"
+                               Mask="@(new DateMask("dd/MM/yyyy"))" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker Label="Fecha de Vencimiento"
+                               @bind-Date="fechaVencimientoDateTime"
+                               Variant="Variant.Outlined"
+                               DateFormat="dd/MM/yyyy"
+                               Mask="@(new DateMask("dd/MM/yyyy"))"
+                               MinDate="DateTime.Today" />
+            </MudItem>
+
+            <!-- Configuraciones -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Configuraciones del Producto</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int?"
+                                 Label="Nivel de Reorden"
+                                 @bind-Value="producto.NivelReorden"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 HelperText="Cantidad mínima para reordenar" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int?"
+                                 Label="Cantidad Máxima"
+                                 @bind-Value="producto.CantidadMaxima"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 HelperText="Cantidad máxima permitida" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <!-- Espacio -->
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudCheckBox T="bool?"
+                             Label="Requiere Receta Médica"
+                             @bind-Value="producto.RequiereReceta"
+                             Color="Color.Primary" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudCheckBox T="bool?"
+                             Label="Medicamento Controlado"
+                             @bind-Value="producto.MedicamentoControlado"
+                             Color="Color.Warning" />
+            </MudItem>
+
+            <!-- Imagen del producto -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Imagen del Producto</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudFileUpload T="IBrowserFile"
+                               FilesChanged="OnImageSelected"
+                               Accept=".jpg,.jpeg,.png,.gif,.bmp,.webp">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.CloudUpload">
+                            @(HasCurrentImage() ? "Cambiar Imagen" : "Seleccionar Imagen")
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+                <MudText Typo="Typo.caption" Class="mt-1">
+                    Formatos soportados: JPG, PNG, GIF, BMP, WebP. Máximo 5MB.
+                </MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                @* Mostrar nueva imagen seleccionada *@
+                @if (!string.IsNullOrEmpty(imagenBase64))
+                {
+                    <MudPaper Class="pa-2" Style="text-align: center;">
+                        <MudText Typo="Typo.body2" Class="mb-2">Nueva Imagen:</MudText>
+                        <MudImage Src="@GetImageDataUrl(imagenBase64)"
+                                  Alt="Nueva imagen"
+                                  Width="150"
+                                  Height="150"
+                                  ObjectFit="ObjectFit.Cover"
+                                  Style="border-radius: 8px;" />
+                        <br />
+                        <MudButton Size="Size.Small"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   OnClick="RemoveNewImage"
+                                   Class="mt-2">
+                            Quitar Nueva Imagen
+                        </MudButton>
+                    </MudPaper>
+                }
+                @* Mostrar imagen existente si está editando y no hay nueva imagen *@
+                else if (HasCurrentImage())
+                {
+                    <MudPaper Class="pa-2" Style="text-align: center;">
+                        <MudText Typo="Typo.body2" Class="mb-2">Imagen Actual:</MudText>
+                        <MudImage Src="@GetCurrentImageUrl()"
+                                  Alt="Imagen actual"
+                                  Width="150"
+                                  Height="150"
+                                  ObjectFit="ObjectFit.Cover"
+                                  Style="border-radius: 8px;" />
+                        <br />
+                        <MudButton Size="Size.Small"
+                                   Color="Color.Warning"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   OnClick="RemoveCurrentImage"
+                                   Class="mt-2">
+                            Quitar Imagen Actual
+                        </MudButton>
+                    </MudPaper>
+                }
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/producto"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(isSubmitting || !string.IsNullOrEmpty(nombreValidationMessage))">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdProducto.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdProducto { get; set; }
+
+    private Producto producto = new Producto();
+    private ProductoFormModel productoForm = new ProductoFormModel();
+    private List<Categoria> categorias = new();
+    private List<Proveedor> proveedores = new();
+    private bool isSubmitting = false;
+    private string nombreValidationMessage = "";
+
+    // Variables para fechas
+    private DateTime? fechaCompraDateTime;
+    private DateTime? fechaVencimientoDateTime;
+
+    // Variables para imagen
+    private string imagenBase64 = ""; // Nueva imagen seleccionada
+    private string imagenActual = ""; // Imagen existente del producto
+    private IBrowserFile selectedFile;
+    private bool removeCurrentImage = false; // Flag para saber si se quiere quitar la imagen actual
+
+    // Modelo para el formulario con validaciones
+    public class ProductoFormModel
+    {
+        [Required(ErrorMessage = "El nombre del producto es requerido")]
+        [StringLength(100, ErrorMessage = "El nombre no puede exceder los 100 caracteres")]
+        public string? NombreProducto { get; set; }
+
+        [StringLength(100, ErrorMessage = "La descripción no puede exceder los 100 caracteres")]
+        public string? DescrpcionProducto { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadDropdownData();
+
+            if (IdProducto.HasValue)
+            {
+                try
+                {
+                    producto = await ProductoServices.GetByIdAsync(IdProducto.Value);
+
+                    // Mapear los datos al formulario
+                    productoForm.NombreProducto = producto.NombreProducto;
+                    productoForm.DescrpcionProducto = producto.DescrpcionProducto;
+
+                    // Cargar imagen existente
+                    if (producto.IdImagenNavigation?.Imagen != null)
+                    {
+                        imagenActual = producto.IdImagenNavigation.Imagen;
+                        Console.WriteLine($"Imagen cargada: {imagenActual.Substring(0, Math.Min(50, imagenActual.Length))}...");
+                    }
+
+                    // Convertir DateOnly a DateTime para los DatePickers
+                    if (producto.FechaCompra.HasValue)
+                    {
+                        fechaCompraDateTime = producto.FechaCompra.Value.ToDateTime(TimeOnly.MinValue);
+                    }
+
+                    if (producto.FechaVencimiento.HasValue)
+                    {
+                        fechaVencimientoDateTime = producto.FechaVencimiento.Value.ToDateTime(TimeOnly.MinValue);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Error al cargar el producto: {ex.Message}", Severity.Error);
+                    NavigationManager.NavigateTo("/producto");
+                }
+            }
+            else
+            {
+                producto = new Producto();
+                productoForm = new ProductoFormModel();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al inicializar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadDropdownData()
+    {
+        try
+        {
+            await LoadCategorias();
+            await LoadProveedores();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar datos: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadCategorias()
+    {
+        try
+        {
+            categorias = await CategoriaServices.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar categorías: {ex.Message}");
+            categorias = new List<Categoria>();
+        }
+    }
+
+    private async Task LoadProveedores()
+    {
+        try
+        {
+            proveedores = await ProveedorServices.GetActiveAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar proveedores: {ex.Message}");
+            proveedores = new List<Proveedor>();
+        }
+    }
+
+    private async Task ValidateNombreProducto()
+    {
+        nombreValidationMessage = "";
+
+        if (!string.IsNullOrEmpty(productoForm.NombreProducto))
+        {
+            try
+            {
+                var exists = await ProductoServices.ExistsAsync(productoForm.NombreProducto, IdProducto);
+                if (exists)
+                {
+                    nombreValidationMessage = "Ya existe un producto con este nombre";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en validación: {ex.Message}");
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    // Métodos para manejo de imágenes
+    private bool HasCurrentImage()
+    {
+        return !string.IsNullOrEmpty(imagenActual) && !removeCurrentImage;
+    }
+
+    private string GetCurrentImageUrl()
+    {
+        if (string.IsNullOrEmpty(imagenActual))
+            return "";
+
+        return GetImageDataUrl(imagenActual);
+    }
+
+    private string GetImageDataUrl(string base64Image)
+    {
+        if (string.IsNullOrEmpty(base64Image))
+            return "";
+
+        // Verificar si ya tiene el prefijo data:image
+        if (base64Image.StartsWith("data:image"))
+        {
+            return base64Image;
+        }
+
+        // Si no tiene el prefijo, agregarlo
+        return $"data:image/jpeg;base64,{base64Image}";
+    }
+
+    private async Task OnImageSelected(IBrowserFile file)
+    {
+        selectedFile = file;
+
+        if (file != null)
+        {
+            // Validar tamaño (5MB máximo)
+            if (file.Size > 5 * 1024 * 1024)
+            {
+                Snackbar.Add("La imagen no puede ser mayor a 5MB", Severity.Warning);
+                return;
+            }
+
+            // Validar tipo de archivo
+            var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/bmp", "image/webp" };
+            if (!allowedTypes.Contains(file.ContentType.ToLower()))
+            {
+                Snackbar.Add("Tipo de archivo no soportado. Use JPG, PNG, GIF, BMP o WebP", Severity.Warning);
+                return;
+            }
+
+            try
+            {
+                // Comprimir y convertir a base64
+                imagenBase64 = await CompressAndConvertToBase64(file);
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al procesar la imagen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task<string> CompressAndConvertToBase64(IBrowserFile file)
+    {
+        // Leer el archivo
+        using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+
+        var imageBytes = memoryStream.ToArray();
+
+        // Comprimir la imagen usando JavaScript
+        var compressedBase64 = await JSRuntime.InvokeAsync<string>("compressImage", Convert.ToBase64String(imageBytes), 800, 600, 0.7);
+
+        return compressedBase64;
+    }
+
+    private void RemoveNewImage()
+    {
+        imagenBase64 = "";
+        selectedFile = null;
+        StateHasChanged();
+    }
+
+    private void RemoveCurrentImage()
+    {
+        removeCurrentImage = true;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Validar nombre único una vez más antes de guardar
+            if (!string.IsNullOrEmpty(productoForm.NombreProducto))
+            {
+                var exists = await ProductoServices.ExistsAsync(productoForm.NombreProducto, IdProducto);
+                if (exists)
+                {
+                    Snackbar.Add("Ya existe un producto con este nombre", Severity.Warning);
+                    return;
+                }
+            }
+
+            // Mapear datos del formulario al modelo
+            if (IdProducto.HasValue)
+            {
+                producto.IdProducto = IdProducto.Value;
+            }
+
+            producto.NombreProducto = productoForm.NombreProducto?.Trim();
+            producto.DescrpcionProducto = productoForm.DescrpcionProducto?.Trim();
+
+            // Convertir DateTime a DateOnly antes de guardar
+            if (fechaCompraDateTime.HasValue)
+            {
+                producto.FechaCompra = DateOnly.FromDateTime(fechaCompraDateTime.Value);
+            }
+
+            if (fechaVencimientoDateTime.HasValue)
+            {
+                producto.FechaVencimiento = DateOnly.FromDateTime(fechaVencimientoDateTime.Value);
+            }
+
+            // Manejar imagen
+            if (!string.IsNullOrEmpty(imagenBase64))
+            {
+                // Si hay una nueva imagen, crear o actualizar ImagenProducto
+                if (producto.IdImagenNavigation == null)
+                {
+                    producto.IdImagenNavigation = new ImagenProducto();
+                }
+                producto.IdImagenNavigation.Imagen = imagenBase64;
+            }
+            else if (removeCurrentImage && producto.IdImagenNavigation != null)
+            {
+                // Si se quiere quitar la imagen actual
+                producto.IdImagen = null;
+                producto.IdImagenNavigation = null;
+            }
+
+            var result = await ProductoServices.AddUpdateAsync(producto);
+
+            if (result)
+            {
+                var message = IdProducto.HasValue ? "Producto actualizado correctamente" : "Producto creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/producto");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el producto", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en HandleSubmit: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+}
+
+<script>
+    window.compressImage = (base64String, maxWidth, maxHeight, quality) => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Calcular nuevas dimensiones manteniendo aspecto
+                let { width, height } = img;
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = height * (maxWidth / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = width * (maxHeight / height);
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Dibujar y comprimir
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+                resolve(compressedBase64);
+            };
+            img.src = 'data:image/jpeg;base64,' + base64String;
+        });
+    };
+</script>

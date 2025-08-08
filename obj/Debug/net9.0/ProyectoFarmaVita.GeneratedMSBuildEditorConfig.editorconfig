@@ -35,16 +35,64 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/AsignacionTurnoTrabajo/AgregarEditarAsignacionTurno.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBc2lnbmFjaW9uVHVybm9UcmFiYWpvXEFncmVnYXJFZGl0YXJBc2lnbmFjaW9uVHVybm8ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/AsignacionTurnoTrabajo/ListaAsignacionTurno.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBc2lnbmFjaW9uVHVybm9UcmFiYWpvXExpc3RhQXNpZ25hY2lvblR1cm5vLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/CategoriaProductos/AgregarEditarCategoria.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDYXRlZ29yaWFQcm9kdWN0b3NcQWdyZWdhckVkaXRhckNhdGVnb3JpYS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/CategoriaProductos/ListaCategoria.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDYXRlZ29yaWFQcm9kdWN0b3NcTGlzdGFDYXRlZ29yaWEucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Departamento/AgregarEditarDepartamento.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xEZXBhcnRhbWVudG9cQWdyZWdhckVkaXRhckRlcGFydGFtZW50by5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Departamento/ListaDepartamento.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xEZXBhcnRhbWVudG9cTGlzdGFEZXBhcnRhbWVudG8ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Error.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/EstadoCivil/AgregarEditarEstadoCivil.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFc3RhZG9DaXZpbFxBZ3JlZ2FyRWRpdGFyRXN0YWRvQ2l2aWwucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/EstadoCivil/ListaEstadoCivil.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFc3RhZG9DaXZpbFxMaXN0YUVzdGFkb0NpdmlsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Genero/AgregarEditarGenero.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xHZW5lcm9cQWdyZWdhckVkaXRhckdlbmVyby5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Genero/GeneroLista.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xHZW5lcm9cR2VuZXJvTGlzdGEucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Home.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Municipio/AgregarEditarMunicipio.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xNdW5pY2lwaW9cQWdyZWdhckVkaXRhck11bmljaXBpby5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Municipio/ListaMunicipio.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xNdW5pY2lwaW9cTGlzdGFNdW5pY2lwaW8ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Persona/CrearEditarPersona.razor]
@@ -55,12 +103,36 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQZXJzb25hXFBlcnNvbmFzTGlzdGEucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Producto/CrearEditarProducto.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcm9kdWN0b1xDcmVhckVkaXRhclByb2R1Y3RvLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Producto/ListaProducto.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcm9kdWN0b1xMaXN0YVByb2R1Y3RvLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Proveedor/CrearEditarProveedor.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcm92ZWVkb3JcQ3JlYXJFZGl0YXJQcm92ZWVkb3IucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Proveedor/ProveedorLista.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcm92ZWVkb3JcUHJvdmVlZG9yTGlzdGEucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Sucrusales/CrearEditarSucursal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdWNydXNhbGVzXENyZWFyRWRpdGFyU3VjdXJzYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Sucrusales/ListadoSucursales.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdWNydXNhbGVzXExpc3RhZG9TdWN1cnNhbGVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/TurnoTrabajoPages/CrearEditarTurnosTrabajo.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUdXJub1RyYWJham9QYWdlc1xDcmVhckVkaXRhclR1cm5vc1RyYWJham8ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/TurnoTrabajoPages/ListadoTrunosTrabajo.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xUdXJub1RyYWJham9QYWdlc1xMaXN0YWRvVHJ1bm9zVHJhYmFqby5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Weather.razor]

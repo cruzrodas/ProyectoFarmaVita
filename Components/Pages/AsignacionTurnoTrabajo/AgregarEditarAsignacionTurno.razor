@@ -1,0 +1,363 @@
+﻿@page "/asignacion-turno/agregar"
+@page "/asignacion-turno/agregar/{IdAsignacion:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.AsignacionTurnoServices
+@using ProyectoFarmaVita.Services.PersonaServices
+@using ProyectoFarmaVita.Services.SucursalServices
+@using ProyectoFarmaVita.Services.TurnoTrabajoService
+@using MudBlazor
+
+@inject IAsignacionTurnoService AsignacionTurnoServices
+@inject IPersonaService PersonaServices
+@inject ISucursalService SucursalServices
+@inject ITurnoTrabajoService TurnoTrabajoServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdAsignacion.HasValue ? "Editar Asignación de Turno" : "Nueva Asignación de Turno")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdAsignacion.HasValue ? "Editar Asignación de Turno" : "Agregar Nueva Asignación de Turno")
+    </MudText>
+
+    <EditForm Model="asignacionTurno" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Persona"
+                           @bind-Value="asignacionTurno.IdPersona"
+                           For="@(() => asignacionTurno.IdPersona)"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           RequiredError="Debe seleccionar una persona">
+                    @if (personas != null)
+                    {
+                        @foreach (var persona in personas)
+                        {
+                            <MudSelectItem T="int?" Value="@persona.IdPersona">@($"{persona.Nombre} {persona.Apellido}")</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Sucursal"
+                           @bind-Value="asignacionTurno.IdSucursal"
+                           For="@(() => asignacionTurno.IdSucursal)"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           RequiredError="Debe seleccionar una sucursal">
+                    @if (sucursales != null)
+                    {
+                        @foreach (var sucursal in sucursales)
+                        {
+                            <MudSelectItem T="int?" Value="@sucursal.IdSucursal">@sucursal.NombreSucursal</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Turno de Trabajo"
+                           @bind-Value="asignacionTurno.IdTurno"
+                           For="@(() => asignacionTurno.IdTurno)"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           RequiredError="Debe seleccionar un turno">
+                    @if (turnos != null)
+                    {
+                        @foreach (var turno in turnos)
+                        {
+                            <MudSelectItem T="int?" Value="@turno.IdTurno">@($"{turno.NombreTurno} ({turno.HoraInicio:HH:mm} - {turno.HoraFin:HH:mm})")</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <!-- Espacio para balancear el grid -->
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker Label="Fecha de Inicio"
+                               @bind-Date="fechaInicioDateTime"
+                               For="@(() => fechaInicioDateTime)"
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               RequiredError="La fecha de inicio es requerida"
+                               DateFormat="dd/MM/yyyy"
+                               Mask="@(new DateMask("dd/MM/yyyy"))"
+                               MaxDate="fechaFinDateTime"
+                               Immediate="true" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker Label="Fecha de Fin"
+                               @bind-Date="fechaFinDateTime"
+                               For="@(() => fechaFinDateTime)"
+                               Variant="Variant.Outlined"
+                               DateFormat="dd/MM/yyyy"
+                               Mask="@(new DateMask("dd/MM/yyyy"))"
+                               MinDate="fechaInicioDateTime"
+                               Immediate="true" />
+            </MudItem>
+
+            <!-- Información adicional -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Información del Turno Seleccionado</MudText>
+                <MudDivider />
+            </MudItem>
+
+            @if (selectedTurno != null)
+            {
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Nombre del Turno"
+                                  Value="@selectedTurno.NombreTurno"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Horario"
+                                  Value="@($"{selectedTurno.HoraInicio:HH:mm} - {selectedTurno.HoraFin:HH:mm}")"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Descripción"
+                                  Value="@selectedTurno.Descripcion"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true" />
+                </MudItem>
+            }
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/asignacion-turno"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdAsignacion.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdAsignacion { get; set; }
+
+    private AsignacionTurno asignacionTurno = new AsignacionTurno();
+    private List<Persona> personas = new();
+    private List<Sucursal> sucursales = new();
+    private List<TurnoTrabajo> turnos = new();
+    private TurnoTrabajo? selectedTurno;
+    private bool isSubmitting = false;
+
+    // Variables auxiliares para los DatePickers
+    private DateTime? fechaInicioDateTime;
+    private DateTime? fechaFinDateTime;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadDropdownData();
+
+            // Cargar asignación si es edición
+            if (IdAsignacion.HasValue)
+            {
+                try
+                {
+                    asignacionTurno = await AsignacionTurnoServices.GetByIdAsync(IdAsignacion.Value);
+
+                    // Convertir DateOnly a DateTime para los DatePickers
+                    if (asignacionTurno.FechaInicio.HasValue)
+                    {
+                        fechaInicioDateTime = asignacionTurno.FechaInicio.Value.ToDateTime(TimeOnly.MinValue);
+                    }
+
+                    if (asignacionTurno.FechaFin.HasValue)
+                    {
+                        fechaFinDateTime = asignacionTurno.FechaFin.Value.ToDateTime(TimeOnly.MinValue);
+                    }
+
+                    // Cargar información del turno seleccionado
+                    await LoadSelectedTurno();
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Error al cargar la asignación: {ex.Message}", Severity.Error);
+                    NavigationManager.NavigateTo("/asignacion-turno");
+                }
+            }
+            else
+            {
+                asignacionTurno = new AsignacionTurno();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al inicializar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadDropdownData()
+    {
+        try
+        {
+            Console.WriteLine("🔄 Cargando datos para AsignacionTurno...");
+
+            // Cargar secuencialmente para evitar conflictos de DbContext
+            await LoadPersonas();
+            await LoadSucursales();
+            await LoadTurnos();
+
+            Console.WriteLine("✅ Todos los datos cargados correctamente");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en LoadDropdownData: {ex.Message}");
+            Snackbar.Add($"Error al cargar datos: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadPersonas()
+    {
+        try
+        {
+            personas = await PersonaServices.GetAllAsync();
+            Console.WriteLine($"📊 Personas cargadas: {personas.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar personas: {ex.Message}");
+            personas = new List<Persona>();
+        }
+    }
+
+    private async Task LoadSucursales()
+    {
+        try
+        {
+            sucursales = await SucursalServices.GetAllAsync();
+            Console.WriteLine($"📊 Sucursales cargadas: {sucursales.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar sucursales: {ex.Message}");
+            sucursales = new List<Sucursal>();
+        }
+    }
+
+    private async Task LoadTurnos()
+    {
+        try
+        {
+            turnos = await TurnoTrabajoServices.GetAllAsync();
+            Console.WriteLine($"📊 Turnos cargados: {turnos.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar turnos: {ex.Message}");
+            turnos = new List<TurnoTrabajo>();
+        }
+    }
+
+    private async Task LoadSelectedTurno()
+    {
+        if (asignacionTurno.IdTurno.HasValue)
+        {
+            selectedTurno = turnos.FirstOrDefault(t => t.IdTurno == asignacionTurno.IdTurno.Value);
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnTurnoChanged()
+    {
+        await LoadSelectedTurno();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Convertir DateTime a DateOnly antes de guardar
+            if (fechaInicioDateTime.HasValue)
+            {
+                asignacionTurno.FechaInicio = DateOnly.FromDateTime(fechaInicioDateTime.Value);
+            }
+
+            if (fechaFinDateTime.HasValue)
+            {
+                asignacionTurno.FechaFin = DateOnly.FromDateTime(fechaFinDateTime.Value);
+            }
+
+            // Validar que la fecha de inicio no sea mayor que la fecha de fin
+            if (asignacionTurno.FechaInicio.HasValue && asignacionTurno.FechaFin.HasValue
+                && asignacionTurno.FechaInicio > asignacionTurno.FechaFin)
+            {
+                Snackbar.Add("La fecha de inicio no puede ser mayor que la fecha de fin", Severity.Warning);
+                return;
+            }
+
+            var result = await AsignacionTurnoServices.AddUpdateAsync(asignacionTurno);
+
+            if (result)
+            {
+                var message = IdAsignacion.HasValue ? "Asignación actualizada correctamente" : "Asignación creada correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/asignacion-turno");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar la asignación", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en HandleSubmit: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    // Método para actualizar la información del turno cuando se selecciona
+    private void OnTurnoSelectionChanged(int? turnoId)
+    {
+        asignacionTurno.IdTurno = turnoId;
+        selectedTurno = turnoId.HasValue ? turnos.FirstOrDefault(t => t.IdTurno == turnoId.Value) : null;
+        StateHasChanged();
+    }
+}

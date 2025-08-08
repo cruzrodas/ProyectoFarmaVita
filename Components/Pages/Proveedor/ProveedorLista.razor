@@ -1,0 +1,435 @@
+﻿@page "/proveedor"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.ProveedorServices
+@using ProyectoFarmaVita.Services.PersonaServices
+@using MudBlazor
+
+@inject IProveedorService ProveedorServices
+@inject IPersonaService PersonaServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<h3 style="margin-bottom: 20px;">Proveedores</h3>
+<a href="/proveedor/agregar" class="btn btn-primary mt-2">Nuevo Proveedor</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Gestión de Proveedores</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="4">
+            <MudTextField T="string" Label="Buscar por Nombre, Email o Contacto"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudSelect T="int?"
+                       Label="Filtrar por Persona de Contacto"
+                       @bind-Value="selectedPersonaContactoId"
+                       Variant="Variant.Outlined"
+                       Clearable="true"
+                       OnClearButtonClick="ClearPersonaFilter">
+                <MudSelectItem Value="@((int?)null)">Todos los contactos</MudSelectItem>
+                @if (personas != null)
+                {
+                    @foreach (var persona in personas)
+                    {
+                        <MudSelectItem Value="@((int?)persona.IdPersona)">@($"{persona.Nombre} {persona.Apellido}")</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="4" Class="d-flex align-center">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FilterList"
+                       OnClick="ApplyFilters">
+                Filtrar
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearFilters"
+                       Class="ml-2">
+                Limpiar
+            </MudButton>
+            <MudSpacer />
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">
+            @if (string.IsNullOrEmpty(searchArea))
+            {
+                <MudText>No hay proveedores registrados en el sistema.</MudText>
+            }
+            else
+            {
+                <MudText>No se encontraron proveedores que coincidan con la búsqueda "@searchArea".</MudText>
+            }
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable T="Proveedor"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Nombre Proveedor</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Persona de Contacto</MudTh>
+                <MudTh>Teléfono</MudTh>
+                <MudTh>Ubicación</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.IdProveedor</MudTd>
+                <MudTd DataLabel="Nombre">
+                    <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.NombreProveedor</MudText>
+                </MudTd>
+                <MudTd DataLabel="Email">
+                    @if (string.IsNullOrEmpty(context.Email))
+                    {
+                        <MudText Typo="Typo.body2" Style="color: gray; font-style: italic;">Sin email</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">@context.Email</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Contacto">
+                    @if (context.PersonaContactoNavigation != null)
+                    {
+                        <MudText Typo="Typo.body2">@($"{context.PersonaContactoNavigation.Nombre} {context.PersonaContactoNavigation.Apellido}")</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Style="color: gray; font-style: italic;">Sin contacto</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Teléfono">
+                    @if (context.IdTelefonoNavigation?.NumeroTelefonico != null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info">@context.IdTelefonoNavigation.NumeroTelefonico</MudChip>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Style="color: gray; font-style: italic;">Sin teléfono</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Ubicación">
+                    @if (context.IdDireccionNavigation != null)
+                    {
+                        <MudText Typo="Typo.body2">
+                            @($"{context.IdDireccionNavigation.IdMunicipioNavigation?.NombreMunicipio}, {context.IdDireccionNavigation.IdMunicipioNavigation?.IdDepartamentoNavigation?.NombreDepartamento}")
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Style="color: gray; font-style: italic;">Sin dirección</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Estado">
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@(context.Activo == true ? Color.Success : Color.Error)">
+                        @(context.Activo == true ? "Activo" : "Inactivo")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-flex gap-1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       Title="Editar proveedor"
+                                       OnClick="@(() => NavigateToEdit(context.IdProveedor))" />
+
+
+
+                        <MudIconButton Icon="@(context.Activo == true ? Icons.Material.Filled.Delete : Icons.Material.Filled.Restore)"
+                                       Color="@(context.Activo == true ? Color.Error : Color.Success)"
+                                       Size="Size.Small"
+                                       Title="@(context.Activo == true ? "Desactivar proveedor" : "Reactivar proveedor")"
+                                       OnClick="@(() => ToggleStatus(context))" />
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Proveedores por página:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 10, 20, 25, 50, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+
+</MudPaper>
+
+@code {
+    private MPaginatedResult<Proveedor> paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private const int PageSize = 20;
+    private string searchArea = "";
+    private List<Persona> personas = new();
+    private int? selectedPersonaContactoId = null;
+
+    // Estadísticas
+    private int proveedoresActivos = 0;
+    private int totalProductos = 0;
+    private int proveedoresConContacto = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDropdownData();
+        await LoadPage(1);
+    }
+
+    private async Task LoadDropdownData()
+    {
+        try
+        {
+            await LoadPersonas();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar datos dropdown: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPersonas()
+    {
+        try
+        {
+            personas = await PersonaServices.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar personas: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            if (selectedPersonaContactoId.HasValue)
+            {
+                // Filtrar por persona de contacto
+                var proveedoresByContacto = await ProveedorServices.GetByPersonaContactoAsync(selectedPersonaContactoId.Value);
+
+                // Aplicar filtro de búsqueda si existe
+                if (!string.IsNullOrEmpty(searchArea))
+                {
+                    proveedoresByContacto = proveedoresByContacto.Where(p =>
+                        p.NombreProveedor.Contains(searchArea, StringComparison.OrdinalIgnoreCase) ||
+                        (p.Email != null && p.Email.Contains(searchArea, StringComparison.OrdinalIgnoreCase))
+                    ).ToList();
+                }
+
+                // Crear resultado paginado manual
+                var totalItems = proveedoresByContacto.Count;
+                var items = proveedoresByContacto
+                    .Skip((page - 1) * PageSize)
+                    .Take(PageSize)
+                    .ToList();
+
+                paginatedResult = new MPaginatedResult<Proveedor>
+                {
+                    Items = items,
+                    TotalCount = totalItems,
+                    PageNumber = page,
+                    PageSize = PageSize
+                };
+            }
+            else
+            {
+                // Sin filtros específicos, usar paginación normal
+                paginatedResult = await ProveedorServices.GetPaginatedAsync(page, PageSize, searchArea);
+            }
+
+            CalculateStatistics();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CalculateStatistics()
+    {
+        if (paginatedResult?.Items != null)
+        {
+            proveedoresActivos = paginatedResult.Items.Count(p => p.Activo == true);
+            totalProductos = paginatedResult.Items.Sum(p => p.Producto?.Count ?? 0);
+            proveedoresConContacto = paginatedResult.Items.Count(p => p.PersonaContacto.HasValue);
+        }
+    }
+
+    private async Task<TableData<Proveedor>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+            if (selectedPersonaContactoId.HasValue)
+            {
+                var proveedoresByContacto = await ProveedorServices.GetByPersonaContactoAsync(selectedPersonaContactoId.Value);
+
+                if (!string.IsNullOrEmpty(searchArea))
+                {
+                    proveedoresByContacto = proveedoresByContacto.Where(p =>
+                        p.NombreProveedor.Contains(searchArea, StringComparison.OrdinalIgnoreCase) ||
+                        (p.Email != null && p.Email.Contains(searchArea, StringComparison.OrdinalIgnoreCase))
+                    ).ToList();
+                }
+
+                var totalItems = proveedoresByContacto.Count;
+                var items = proveedoresByContacto
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                CalculateStatistics();
+
+                return new TableData<Proveedor>
+                {
+                    Items = items,
+                    TotalItems = totalItems
+                };
+            }
+            else
+            {
+                paginatedResult = await ProveedorServices.GetPaginatedAsync(page, pageSize, searchArea);
+                CalculateStatistics();
+
+                return new TableData<Proveedor>
+                {
+                    Items = paginatedResult.Items,
+                    TotalItems = paginatedResult.TotalCount
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new TableData<Proveedor>
+            {
+                Items = new List<Proveedor>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ApplyFilters()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ClearFilters()
+    {
+        searchArea = "";
+        selectedPersonaContactoId = null;
+        await LoadPage(1);
+    }
+
+    private async Task ClearPersonaFilter()
+    {
+        selectedPersonaContactoId = null;
+        await LoadPage(1);
+    }
+
+    private void NavigateToEdit(int idProveedor)
+    {
+        NavigationManager.NavigateTo($"/proveedor/agregar/{idProveedor}");
+    }
+
+    private async Task ToggleStatus(Proveedor proveedor)
+    {
+        var action = proveedor.Activo == true ? "desactivar" : "reactivar";
+        var newStatus = proveedor.Activo != true;
+
+        var message = $"¿Está seguro que desea {action} el proveedor '{proveedor.NombreProveedor}'?";
+
+        if (proveedor.Activo == true && (proveedor.Producto?.Count > 0 || proveedor.OrdenRestablecimiento?.Count > 0))
+        {
+            message += $"\n\nEste proveedor tiene {proveedor.Producto?.Count ?? 0} producto(s) y {proveedor.OrdenRestablecimiento?.Count ?? 0} orden(es) asociada(s).";
+        }
+
+        var dialog = await DialogService.ShowMessageBox(
+            $"Confirmar {action}",
+            message,
+            yesText: char.ToUpper(action[0]) + action.Substring(1),
+            cancelText: "Cancelar");
+
+        if (dialog == true)
+        {
+            try
+            {
+                proveedor.Activo = newStatus;
+                var result = await ProveedorServices.AddUpdateAsync(proveedor);
+
+                if (result)
+                {
+                    var successMessage = newStatus ? "Proveedor reactivado correctamente" : "Proveedor desactivado correctamente";
+                    Snackbar.Add(successMessage, Severity.Success);
+                    await LoadPage(1);
+                }
+                else
+                {
+                    Snackbar.Add($"Error al {action} el proveedor", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cambiar estado: {ex.Message}");
+                Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

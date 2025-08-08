@@ -1,0 +1,122 @@
+﻿@page "/estadocivil/agregar"
+@page "/estadocivil/agregar/{IdEstadoCivil:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.EstadoCivilServices
+@using MudBlazor
+
+@inject IEstadoCivil EstadoCivilServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdEstadoCivil.HasValue ? "Editar Estado Civil" : "Nuevo Estado Civil")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdEstadoCivil.HasValue ? "Editar Estado Civil" : "Agregar Nuevo Estado Civil")
+    </MudText>
+
+    <EditForm Model="estadoCivil" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Estado Civil"
+                              @bind-Value="estadoCivil.EstadoCivil1"
+                              For="@(() => estadoCivil.EstadoCivil1)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El estado civil es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true" />
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/estadocivil"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdEstadoCivil.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+ 
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdEstadoCivil { get; set; }
+
+    private EstadoCivil estadoCivil = new EstadoCivil();
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IdEstadoCivil.HasValue)
+        {
+            try
+            {
+                estadoCivil = await EstadoCivilServices.GetByIdAsync(IdEstadoCivil.Value);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al cargar el estado civil: {ex.Message}", Severity.Error);
+                NavigationManager.NavigateTo("/estadocivil");
+            }
+        }
+        else
+        {
+            estadoCivil = new EstadoCivil();
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await EstadoCivilServices.AddUpdateAsync(estadoCivil);
+
+            if (result)
+            {
+                var message = IdEstadoCivil.HasValue ? "Estado civil actualizado correctamente" : "Estado civil creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/estadocivil");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el estado civil", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+}

@@ -1,0 +1,122 @@
+﻿@page "/departamento/agregar"
+@page "/departamento/agregar/{IdDepartamento:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.DepartamentoServices
+@using MudBlazor
+
+@inject IdepartamentoService DepartamentoServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdDepartamento.HasValue ? "Editar Departamento" : "Nuevo Departamento")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdDepartamento.HasValue ? "Editar Departamento" : "Agregar Nuevo Departamento")
+    </MudText>
+
+    <EditForm Model="departamento" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Nombre del Departamento"
+                              @bind-Value="departamento.NombreDepartamento"
+                              For="@(() => departamento.NombreDepartamento)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre del departamento es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true" />
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/departamento"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdDepartamento.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdDepartamento { get; set; }
+
+    private Departamento departamento = new Departamento();
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IdDepartamento.HasValue)
+        {
+            try
+            {
+                departamento = await DepartamentoServices.GetByIdAsync(IdDepartamento.Value);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al cargar el departamento: {ex.Message}", Severity.Error);
+                NavigationManager.NavigateTo("/departamento");
+            }
+        }
+        else
+        {
+            departamento = new Departamento();
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await DepartamentoServices.AddUpdateAsync(departamento);
+
+            if (result)
+            {
+                var message = IdDepartamento.HasValue ? "Departamento actualizado correctamente" : "Departamento creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/departamento");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el departamento", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+}

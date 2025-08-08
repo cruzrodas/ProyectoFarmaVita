@@ -11,9 +11,9 @@ public partial class Persona
 
     public string? Apellido { get; set; }
 
-    public int? Dpi { get; set; }
+    public long? Dpi { get; set; }
 
-    public int? Nit { get; set; }
+    public long? Nit { get; set; }
 
     public DateOnly? FechaNacimiento { get; set; }
 

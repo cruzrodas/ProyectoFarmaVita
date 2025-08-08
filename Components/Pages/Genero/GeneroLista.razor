@@ -1,0 +1,165 @@
+﻿@page "/Genero"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.GeneroServices
+@using MudBlazor
+
+@inject IGeneroServices GeneroServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+
+<h3 style="margin-bottom: 20px;">Género</h3>
+<a href="/genero/agregar" class="btn btn-primary mt-2">Nuevo Género</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Géneros Disponibles</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" Label="Buscar por Género"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Error">Error al cargar los datos.</MudAlert>
+    }
+    else
+    {
+        <MudTable T="Genero"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID Género</MudTh>
+                <MudTh>Género</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="ID Género">@context.IdGenero</MudTd>
+                <MudTd DataLabel="Género">@context.Ngenero</MudTd>
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-grid gap-2 d-md-block">
+                        <a href="/genero/agregar/@context.IdGenero" class="btn btn-warning">Editar</a>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Géneros por página:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 20, 25, 30, 40, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private MPaginatedResult<Genero>? paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private DialogOptions dialogOptions = new() { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+    private const int PageSize = 25;
+    private string searchArea = "";
+    private List<Genero> genero = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            paginatedResult = await GeneroServices.GetPaginatedAsync(page, PageSize, searchArea);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error en LoadPage: {ex.Message}");
+            paginatedResult = new MPaginatedResult<Genero>
+            {
+                Items = new List<Genero>(),
+                TotalCount = 0,
+                PageNumber = page,
+                PageSize = PageSize
+            };
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<TableData<Genero>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+            paginatedResult = await GeneroServices.GetPaginatedAsync(page, pageSize, searchArea);
+
+            return new TableData<Genero>
+            {
+                Items = paginatedResult?.Items ?? new List<Genero>(),
+                TotalItems = paginatedResult?.TotalCount ?? 0
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error en ServerReload: {ex.Message}");
+            return new TableData<Genero>
+            {
+                Items = new List<Genero>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task PrintTable()
+    {
+        await JSRuntime.InvokeVoidAsync("printTable");
+    }
+}

@@ -11,6 +11,8 @@ public partial class Municipio
 
     public int? IdDepartamento { get; set; }
 
+    public bool? Activo { get; set; }
+
     public virtual ICollection<Direccion> Direccion { get; set; } = new List<Direccion>();
 
     public virtual Departamento? IdDepartamentoNavigation { get; set; }

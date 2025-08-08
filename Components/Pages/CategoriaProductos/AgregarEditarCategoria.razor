@@ -1,0 +1,215 @@
+﻿@page "/categoria/agregar"
+@page "/categoria/agregar/{IdCategoria:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.CategoriaProductoService
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+
+@inject ICategoriaService CategoriaServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdCategoria.HasValue ? "Editar Categoría" : "Nueva Categoría")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdCategoria.HasValue ? "Editar Categoría" : "Agregar Nueva Categoría")
+    </MudText>
+
+    <EditForm Model="categoriaForm" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Nombre de la Categoría"
+                              @bind-Value="categoriaForm.NombreCategoria"
+                              For="@(() => categoriaForm.NombreCategoria)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre de la categoría es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true"
+                              OnBlur="ValidateNombreCategoria" />
+
+                @if (!string.IsNullOrEmpty(nombreValidationMessage))
+                {
+                    <MudText Color="Color.Error" Typo="Typo.body2" Class="mt-1">@nombreValidationMessage</MudText>
+                }
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField Label="Descripción de la Categoría"
+                              @bind-Value="categoriaForm.DescripcionCategoria"
+                              For="@(() => categoriaForm.DescripcionCategoria)"
+                              Variant="Variant.Outlined"
+                              Lines="4"
+                              MaxLength="500"
+                              Counter="500"
+                              Immediate="true"
+                              HelperText="Descripción opcional de la categoría" />
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/categoria"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(isSubmitting || !string.IsNullOrEmpty(nombreValidationMessage))">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdCategoria.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdCategoria { get; set; }
+
+    private Categoria categoria = new Categoria();
+    private CategoriaFormModel categoriaForm = new CategoriaFormModel();
+    private bool isSubmitting = false;
+    private int productCount = 0;
+    private string nombreValidationMessage = "";
+
+    // Modelo para el formulario con validaciones
+    public class CategoriaFormModel
+    {
+        [Required(ErrorMessage = "El nombre de la categoría es requerido")]
+        [StringLength(100, ErrorMessage = "El nombre no puede exceder los 100 caracteres")]
+        public string? NombreCategoria { get; set; }
+
+        [StringLength(500, ErrorMessage = "La descripción no puede exceder los 500 caracteres")]
+        public string? DescripcionCategoria { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Cargar categoría si es edición
+            if (IdCategoria.HasValue)
+            {
+                try
+                {
+                    categoria = await CategoriaServices.GetByIdAsync(IdCategoria.Value);
+
+                    // Mapear los datos al formulario
+                    categoriaForm.NombreCategoria = categoria.NombreCategoria;
+                    categoriaForm.DescripcionCategoria = categoria.DescripcionCategoria;
+
+                    // Cargar cantidad de productos asociados
+                    productCount = await CategoriaServices.GetProductCountByCategoriaAsync(IdCategoria.Value);
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Error al cargar la categoría: {ex.Message}", Severity.Error);
+                    NavigationManager.NavigateTo("/categoria");
+                }
+            }
+            else
+            {
+                categoria = new Categoria();
+                categoriaForm = new CategoriaFormModel();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al inicializar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ValidateNombreCategoria()
+    {
+        nombreValidationMessage = "";
+
+        if (!string.IsNullOrEmpty(categoriaForm.NombreCategoria))
+        {
+            try
+            {
+                var exists = await CategoriaServices.ExistsAsync(categoriaForm.NombreCategoria, IdCategoria);
+                if (exists)
+                {
+                    nombreValidationMessage = "Ya existe una categoría con este nombre";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en validación: {ex.Message}");
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Validar nombre único una vez más antes de guardar
+            if (!string.IsNullOrEmpty(categoriaForm.NombreCategoria))
+            {
+                var exists = await CategoriaServices.ExistsAsync(categoriaForm.NombreCategoria, IdCategoria);
+                if (exists)
+                {
+                    Snackbar.Add("Ya existe una categoría con este nombre", Severity.Warning);
+                    return;
+                }
+            }
+
+            // Mapear datos del formulario al modelo
+            if (IdCategoria.HasValue)
+            {
+                categoria.IdCategoria = IdCategoria.Value;
+            }
+
+            categoria.NombreCategoria = categoriaForm.NombreCategoria?.Trim();
+            categoria.DescripcionCategoria = categoriaForm.DescripcionCategoria?.Trim();
+
+            var result = await CategoriaServices.AddUpdateAsync(categoria);
+
+            if (result)
+            {
+                var message = IdCategoria.HasValue ? "Categoría actualizada correctamente" : "Categoría creada correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/categoria");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar la categoría", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en HandleSubmit: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+}

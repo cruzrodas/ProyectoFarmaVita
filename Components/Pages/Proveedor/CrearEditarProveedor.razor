@@ -1,0 +1,578 @@
+﻿@page "/proveedor/agregar"
+@page "/proveedor/agregar/{IdProveedor:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.ProveedorServices
+@using ProyectoFarmaVita.Services.PersonaServices
+@using ProyectoFarmaVita.Services.MunicipioService
+@using ProyectoFarmaVita.Services.DepartamentoServices
+@using ProyectoFarmaVita.Services.TelefonoServices
+@using ProyectoFarmaVita.Services.DireccionServices
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+
+@inject IProveedorService ProveedorServices
+@inject IPersonaService PersonaServices
+@inject IMunicipioService MunicipioServices
+@inject IdepartamentoService DepartamentoServices
+@inject ITelefonoService TelefonoServices
+@inject IDireccionService DireccionServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+@implements IDisposable
+
+<h3 style="margin-bottom: 20px;">@(IdProveedor.HasValue ? "Editar Proveedor" : "Nuevo Proveedor")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdProveedor.HasValue ? "Editar Proveedor" : "Agregar Nuevo Proveedor")
+    </MudText>
+
+    <EditForm Model="proveedorForm" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <!-- Información básica del proveedor -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-2">Información del Proveedor</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Nombre del Proveedor"
+                              @bind-Value="proveedorForm.NombreProveedor"
+                              For="@(() => proveedorForm.NombreProveedor)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre del proveedor es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true"
+                              OnBlur="ValidateNombreProveedor" />
+                
+                @if (!string.IsNullOrEmpty(nombreValidationMessage))
+                {
+                    <MudText Color="Color.Error" Typo="Typo.body2" Class="mt-1">@nombreValidationMessage</MudText>
+                }
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Email del Proveedor"
+                              @bind-Value="proveedorForm.Email"
+                              For="@(() => proveedorForm.Email)"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Email"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Persona de Contacto"
+                           @bind-Value="proveedor.PersonaContacto"
+                           For="@(() => proveedor.PersonaContacto)"
+                           Variant="Variant.Outlined"
+                           Clearable="true">
+                    <MudSelectItem T="int?" Value="@((int?)null)">Sin contacto asignado</MudSelectItem>
+                    @if (personas != null)
+                    {
+                        @foreach (var persona in personas)
+                        {
+                            <MudSelectItem T="int?" Value="@persona.IdPersona">@($"{persona.Nombre} {persona.Apellido}")</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <!-- Sección de Teléfono -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Información de Contacto</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Número Telefónico"
+                              @bind-Value="numeroTelefonico"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Number"
+                              HelperText="Ingresa el número de teléfono del proveedor"
+                              Immediate="true" />
+            </MudItem>
+
+            <!-- Sección de Dirección -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Dirección del Proveedor</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="8">
+                <MudTextField Label="Dirección Completa"
+                              @bind-Value="direccionCompleta"
+                              Variant="Variant.Outlined"
+                              MaxLength="200"
+                              Counter="200"
+                              HelperText="Ej: 5ta Avenida 12-85 Zona 10"
+                              Immediate="true" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Departamento"
+                           @bind-Value="selectedDepartamentoId"
+                           Variant="Variant.Outlined"
+                           OnSelectionChanged="OnDepartamentoChanged">
+                    @if (departamentos != null)
+                    {
+                        @foreach (var dept in departamentos)
+                        {
+                            <MudSelectItem T="int?" Value="@dept.IdDepartamento">@dept.NombreDepartamento</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Municipio"
+                           @bind-Value="selectedMunicipioId"
+                           Variant="Variant.Outlined"
+                           Disabled="@(municipiosByDepartamento == null || !municipiosByDepartamento.Any())">
+                    @if (municipiosByDepartamento != null)
+                    {
+                        @foreach (var municipio in municipiosByDepartamento)
+                        {
+                            <MudSelectItem T="int?" Value="@municipio.IdMunicipio">@municipio.NombreMunicipio</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/proveedor"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(isSubmitting || !string.IsNullOrEmpty(nombreValidationMessage))">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdProveedor.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdProveedor { get; set; }
+
+    private Proveedor proveedor = new Proveedor();
+    private ProveedorFormModel proveedorForm = new ProveedorFormModel();
+    private List<Persona> personas = new();
+    private List<Departamento> departamentos = new();
+    private List<Municipio> municipiosByDepartamento = new();
+    private bool isSubmitting = false;
+    private bool isLoadingMunicipios = false;
+    private bool _isLoadingInitialData = false;
+    private CancellationTokenSource municipiosCancellationToken;
+    private int productCount = 0;
+    private string nombreValidationMessage = "";
+
+    // Variables para crear nuevos registros
+    private int? numeroTelefonico;
+    private string? direccionCompleta;
+
+    private int? _selectedDepartamentoId;
+    private int? selectedDepartamentoId
+    {
+        get => _selectedDepartamentoId;
+        set
+        {
+            if (_selectedDepartamentoId != value)
+            {
+                _selectedDepartamentoId = value;
+
+                if (_isLoadingInitialData)
+                {
+                    Console.WriteLine("🔄 Saltando OnDepartamentoChanged - Carga inicial en progreso");
+                    return;
+                }
+
+                municipiosCancellationToken?.Cancel();
+                municipiosCancellationToken = new CancellationTokenSource();
+
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(300, municipiosCancellationToken.Token);
+                    if (!municipiosCancellationToken.Token.IsCancellationRequested)
+                    {
+                        await InvokeAsync(OnDepartamentoChanged);
+                    }
+                });
+            }
+        }
+    }
+
+    private int? selectedMunicipioId;
+
+    // Modelo para el formulario con validaciones
+    public class ProveedorFormModel
+    {
+        [Required(ErrorMessage = "El nombre del proveedor es requerido")]
+        [StringLength(100, ErrorMessage = "El nombre no puede exceder los 100 caracteres")]
+        public string? NombreProveedor { get; set; }
+
+        [EmailAddress(ErrorMessage = "El formato del email no es válido")]
+        [StringLength(100, ErrorMessage = "El email no puede exceder los 100 caracteres")]
+        public string? Email { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoadingInitialData = true;
+
+        try
+        {
+            await LoadDropdownData();
+
+            if (IdProveedor.HasValue)
+            {
+                try
+                {
+                    proveedor = await ProveedorServices.GetByIdAsync(IdProveedor.Value);
+
+                    // Mapear los datos al formulario
+                    proveedorForm.NombreProveedor = proveedor.NombreProveedor;
+                    proveedorForm.Email = proveedor.Email;
+
+                    // Cargar cantidad de productos asociados
+                    productCount = await ProveedorServices.GetProductCountByProveedorAsync(IdProveedor.Value);
+
+                    // Cargar datos relacionados para edición
+                    await LoadRelatedDataForEdit();
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Error al cargar el proveedor: {ex.Message}", Severity.Error);
+                    NavigationManager.NavigateTo("/proveedor");
+                }
+            }
+            else
+            {
+                proveedor = new Proveedor();
+                proveedorForm = new ProveedorFormModel();
+            }
+        }
+        finally
+        {
+            _isLoadingInitialData = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDropdownData()
+    {
+        try
+        {
+            Console.WriteLine("🔄 Cargando datos para Proveedor...");
+
+            await LoadPersonas();
+            await LoadDepartamentos();
+
+            Console.WriteLine("✅ Todos los datos cargados correctamente");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en LoadDropdownData: {ex.Message}");
+            Snackbar.Add($"Error al cargar datos: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadPersonas()
+    {
+        try
+        {
+            personas = await PersonaServices.GetAllAsync();
+            Console.WriteLine($"📊 Personas cargadas: {personas.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar personas: {ex.Message}");
+            personas = new List<Persona>();
+        }
+    }
+
+    private async Task LoadDepartamentos()
+    {
+        try
+        {
+            departamentos = await DepartamentoServices.GetAllAsync();
+            Console.WriteLine($"📊 Departamentos cargados: {departamentos.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar departamentos: {ex.Message}");
+            departamentos = new List<Departamento>();
+        }
+    }
+
+    private async Task LoadRelatedDataForEdit()
+    {
+        // Cargar dirección existente
+        if (proveedor.IdDireccion.HasValue)
+        {
+            try
+            {
+                var direccionExistente = await DireccionServices.GetByIdAsync(proveedor.IdDireccion.Value);
+                direccionCompleta = direccionExistente.Direccion1;
+                selectedMunicipioId = direccionExistente.IdMunicipio;
+
+                // Cargar el departamento del municipio
+                if (selectedMunicipioId.HasValue)
+                {
+                    var municipios = await MunicipioServices.GetAllAsync();
+                    var municipio = municipios.FirstOrDefault(m => m.IdMunicipio == selectedMunicipioId.Value);
+                    if (municipio != null && municipio.IdDepartamento.HasValue)
+                    {
+                        _selectedDepartamentoId = municipio.IdDepartamento;
+
+                        var municipiosPorDepartamento = await MunicipioServices.GetByDepartamentoIdAsync(municipio.IdDepartamento.Value);
+                        if (municipiosPorDepartamento != null)
+                        {
+                            municipiosByDepartamento = municipiosPorDepartamento;
+                        }
+
+                        StateHasChanged();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cargar dirección existente: {ex.Message}");
+                Snackbar.Add($"Error al cargar dirección: {ex.Message}", Severity.Warning);
+            }
+        }
+
+        // Cargar teléfono existente
+        if (proveedor.IdTelefono.HasValue)
+        {
+            try
+            {
+                var telefonoExistente = await TelefonoServices.GetByIdAsync(proveedor.IdTelefono.Value);
+                numeroTelefonico = telefonoExistente.NumeroTelefonico;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cargar teléfono existente: {ex.Message}");
+                Snackbar.Add($"Error al cargar teléfono: {ex.Message}", Severity.Warning);
+            }
+        }
+    }
+
+    private async Task OnDepartamentoChanged()
+    {
+        if (isLoadingMunicipios)
+        {
+            Console.WriteLine("⏳ Ya se está cargando municipios, saltando...");
+            return;
+        }
+
+        isLoadingMunicipios = true;
+        Console.WriteLine($"🏢 Departamento cambiado a: {selectedDepartamentoId}");
+
+        try
+        {
+            if (selectedDepartamentoId.HasValue)
+            {
+                selectedMunicipioId = null;
+                municipiosByDepartamento = new List<Municipio>();
+                StateHasChanged();
+
+                var municipios = await MunicipioServices.GetByDepartamentoIdAsync(selectedDepartamentoId.Value);
+
+                if (municipios != null)
+                {
+                    municipiosByDepartamento = municipios;
+                    Console.WriteLine($"📍 Municipios cargados: {municipiosByDepartamento.Count}");
+                }
+                else
+                {
+                    municipiosByDepartamento = new List<Municipio>();
+                }
+            }
+            else
+            {
+                municipiosByDepartamento = new List<Municipio>();
+                selectedMunicipioId = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error al cargar municipios: {ex.Message}");
+            Snackbar.Add($"Error al cargar municipios: {ex.Message}", Severity.Error);
+            municipiosByDepartamento = new List<Municipio>();
+        }
+        finally
+        {
+            isLoadingMunicipios = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ValidateNombreProveedor()
+    {
+        nombreValidationMessage = "";
+
+        if (!string.IsNullOrEmpty(proveedorForm.NombreProveedor))
+        {
+            try
+            {
+                var exists = await ProveedorServices.ExistsAsync(proveedorForm.NombreProveedor, IdProveedor);
+                if (exists)
+                {
+                    nombreValidationMessage = "Ya existe un proveedor con este nombre";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en validación: {ex.Message}");
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        municipiosCancellationToken?.Cancel();
+        municipiosCancellationToken?.Dispose();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Validar nombre único una vez más antes de guardar
+            if (!string.IsNullOrEmpty(proveedorForm.NombreProveedor))
+            {
+                var exists = await ProveedorServices.ExistsAsync(proveedorForm.NombreProveedor, IdProveedor);
+                if (exists)
+                {
+                    Snackbar.Add("Ya existe un proveedor con este nombre", Severity.Warning);
+                    return;
+                }
+            }
+
+            // Mapear datos del formulario al modelo
+            if (IdProveedor.HasValue)
+            {
+                proveedor.IdProveedor = IdProveedor.Value;
+            }
+
+            proveedor.NombreProveedor = proveedorForm.NombreProveedor?.Trim();
+            proveedor.Email = proveedorForm.Email?.Trim();
+
+            // ========== MANEJO DE TELÉFONO ==========
+            if (numeroTelefonico.HasValue && numeroTelefonico > 0)
+            {
+                if (proveedor.IdTelefono.HasValue && IdProveedor.HasValue)
+                {
+                    // MODO EDICIÓN: Actualizar teléfono existente
+                    Console.WriteLine($"📞 Actualizando teléfono existente ID: {proveedor.IdTelefono.Value}");
+                    var telefonoExistente = new Telefono
+                    {
+                        IdTelefono = proveedor.IdTelefono.Value,
+                        NumeroTelefonico = numeroTelefonico,
+                        Activo = true
+                    };
+                    await TelefonoServices.AddUpdateAsync(telefonoExistente);
+                }
+                else
+                {
+                    // MODO CREACIÓN: Crear nuevo teléfono
+                    Console.WriteLine("📞 Creando nuevo teléfono");
+                    var nuevoTelefono = new Telefono
+                    {
+                        NumeroTelefonico = numeroTelefonico,
+                        Activo = true
+                    };
+                    var telefonoId = await TelefonoServices.AddAsync(nuevoTelefono);
+                    proveedor.IdTelefono = telefonoId;
+                }
+            }
+
+            // ========== MANEJO DE DIRECCIÓN ==========
+            if (!string.IsNullOrEmpty(direccionCompleta) && selectedMunicipioId.HasValue)
+            {
+                if (proveedor.IdDireccion.HasValue && IdProveedor.HasValue)
+                {
+                    // MODO EDICIÓN: Actualizar dirección existente
+                    Console.WriteLine($"🏠 Actualizando dirección existente ID: {proveedor.IdDireccion.Value}");
+                    var direccionExistente = new Direccion
+                    {
+                        IdDireccion = proveedor.IdDireccion.Value,
+                        Direccion1 = direccionCompleta,
+                        IdMunicipio = selectedMunicipioId,
+                        Activo = true
+                    };
+                    await DireccionServices.AddUpdateAsync(direccionExistente);
+                }
+                else
+                {
+                    // MODO CREACIÓN: Crear nueva dirección
+                    Console.WriteLine("🏠 Creando nueva dirección");
+                    var nuevaDireccion = new Direccion
+                    {
+                        Direccion1 = direccionCompleta,
+                        IdMunicipio = selectedMunicipioId,
+                        Activo = true
+                    };
+                    var direccionId = await DireccionServices.AddAsync(nuevaDireccion);
+                    proveedor.IdDireccion = direccionId;
+                }
+            }
+
+            var result = await ProveedorServices.AddUpdateAsync(proveedor);
+
+            if (result)
+            {
+                var message = IdProveedor.HasValue ? "Proveedor actualizado correctamente" : "Proveedor creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/proveedor");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el proveedor", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en HandleSubmit: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,281 @@
+﻿@page "/municipio"
+
+@using System.Text.Json
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.MunicipioService
+@using ProyectoFarmaVita.Services.DepartamentoServices
+@using MudBlazor
+
+@inject IMunicipioService MunicipioServices
+@inject IdepartamentoService DepartamentoServices
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+
+<h3 style="margin-bottom: 20px;">Municipios</h3>
+<a href="/municipio/agregar" class="btn btn-primary mt-2">Nuevo Municipio</a>
+
+<br />
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-2 text-center" Align="Align.Center">Municipios Disponibles</MudText>
+
+    <MudGrid Class="mt-2">
+        <MudItem xs="12" sm="4">
+            <MudTextField T="string" Label="Buscar por Nombre"
+                          Variant="Variant.Outlined"
+                          @bind-Value="searchArea"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnDebounceIntervalElapsed="Search" />
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudSelect T="int?"
+                       Label="Filtrar por Departamento"
+                       @bind-Value="selectedDepartamentoId"
+                       Variant="Variant.Outlined"
+                       Clearable="true"
+                       OnClearButtonClick="ClearDepartamentoFilter">
+                <MudSelectItem Value="@((int?)null)">Todos los departamentos</MudSelectItem>
+                @if (departamentos != null)
+                {
+                    @foreach (var dept in departamentos)
+                    {
+                        <MudSelectItem Value="@((int?)dept.IdDepartamento)">@dept.NombreDepartamento</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="4" Class="d-flex align-center">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FilterList"
+                       OnClick="ApplyFilters">
+                Filtrar
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearFilters"
+                       Class="ml-2">
+                Limpiar
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <br />
+
+    @if (isLoading)
+    {
+        <div class="spinner-container">
+            <img src="/images/world-spinner.gif" alt="Cargando..." class="spinner-image" />
+        </div>
+    }
+    else if (paginatedResult == null || paginatedResult.Items == null || !paginatedResult.Items.Any())
+    {
+        <MudAlert Severity="Severity.Error">Error al cargar los datos.</MudAlert>
+    }
+    else
+    {
+        <MudTable T="Municipio"
+                  ServerData="ServerReload"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="true"
+                  Loading="@isLoading"
+                  RowClass="cursor-pointer"
+                  Class="printable-table">
+
+            <HeaderContent>
+                <MudTh>ID Municipio</MudTh>
+                <MudTh>Nombre Municipio</MudTh>
+                <MudTh>Departamento</MudTh>
+                <MudTh Class="acciones">Acciones</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.IdMunicipio</MudTd>
+                <MudTd DataLabel="Nombre">@context.NombreMunicipio</MudTd>
+                <MudTd DataLabel="Departamento">@context.IdDepartamentoNavigation?.NombreDepartamento</MudTd>
+                <MudTd DataLabel="Acciones" Class="acciones">
+                    <div class="d-grid gap-2 d-md-block">
+                        <a href="/municipio/agregar/@context.IdMunicipio" class="btn btn-warning">Editar</a>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="Municipios por pagina:"
+                               InfoFormat="@infoFormat"
+                               PageSizeOptions="new int[] { 20, 25, 30, 40, int.MaxValue }"
+                               OnPageChanged="LoadPage"
+                               Class="acciones" />
+            </PagerContent>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private MPaginatedResult<Municipio> paginatedResult;
+    private bool isLoading = false;
+    private string infoFormat = "{first_item}-{last_item} de {all_items}";
+    private DialogOptions dialogOptions = new() { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+    private const int PageSize = 25;
+    private string searchArea = "";
+    private List<Municipio> municipios = new();
+    private List<Departamento> departamentos = new();
+    private int? selectedDepartamentoId = null;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDepartamentos();
+        await LoadPage(1);
+    }
+
+    private async Task LoadDepartamentos()
+    {
+        try
+        {
+            departamentos = await DepartamentoServices.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar departamentos: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPage(int page)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            if (selectedDepartamentoId.HasValue)
+            {
+                // Si hay un departamento seleccionado, usar el método específico
+                var municipiosByDept = await MunicipioServices.GetByDepartamentoIdAsync(selectedDepartamentoId.Value);
+
+                // Aplicar filtro de búsqueda si existe
+                if (!string.IsNullOrEmpty(searchArea))
+                {
+                    municipiosByDept = municipiosByDept.Where(m => m.NombreMunicipio.Contains(searchArea, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+
+                // Crear resultado paginado manual
+                var totalItems = municipiosByDept.Count;
+                var items = municipiosByDept
+                    .Skip((page - 1) * PageSize)
+                    .Take(PageSize)
+                    .ToList();
+
+                paginatedResult = new MPaginatedResult<Municipio>
+                {
+                    Items = items,
+                    TotalCount = totalItems,
+                    PageNumber = page,
+                    PageSize = PageSize
+                };
+            }
+            else
+            {
+                // Sin filtro de departamento, usar paginación normal
+                paginatedResult = await MunicipioServices.GetPaginatedAsync(page, PageSize, searchArea);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<TableData<Municipio>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        isLoading = true;
+        try
+        {
+            var page = state.Page + 1;
+            var pageSize = state.PageSize;
+
+            if (selectedDepartamentoId.HasValue)
+            {
+                // Si hay un departamento seleccionado
+                var municipiosByDept = await MunicipioServices.GetByDepartamentoIdAsync(selectedDepartamentoId.Value);
+
+                // Aplicar filtro de búsqueda si existe
+                if (!string.IsNullOrEmpty(searchArea))
+                {
+                    municipiosByDept = municipiosByDept.Where(m => m.NombreMunicipio.Contains(searchArea, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+
+                var totalItems = municipiosByDept.Count;
+                var items = municipiosByDept
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new TableData<Municipio>
+                {
+                    Items = items,
+                    TotalItems = totalItems
+                };
+            }
+            else
+            {
+                paginatedResult = await MunicipioServices.GetPaginatedAsync(page, pageSize, searchArea);
+                return new TableData<Municipio>
+                {
+                    Items = paginatedResult.Items,
+                    TotalItems = paginatedResult.TotalCount
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new TableData<Municipio>
+            {
+                Items = new List<Municipio>(),
+                TotalItems = 0
+            };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Search()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ApplyFilters()
+    {
+        await LoadPage(1);
+    }
+
+    private async Task ClearFilters()
+    {
+        searchArea = "";
+        selectedDepartamentoId = null;
+        await LoadPage(1);
+    }
+
+    private async Task ClearDepartamentoFilter()
+    {
+        selectedDepartamentoId = null;
+        await LoadPage(1);
+    }
+
+    private async Task PrintTable()
+    {
+        await JSRuntime.InvokeVoidAsync("printTable");
+    }
+}
