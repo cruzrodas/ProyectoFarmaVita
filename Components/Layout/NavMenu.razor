@@ -97,6 +97,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- En NavMenu.razor, agregar después de la sección de Gestión de Productos: -->
+        <!-- GESTIÓN DE INVENTARIOS - DESPLEGABLE -->
+        <div class="nav-item px-3">
+            <div class="nav-section-toggle" onclick="toggleSection(event, 'inventarioSection')">
+                <span class="bi bi-box-seam-fill-nav-menu" aria-hidden="true"></span>
+                Gestión de Inventarios
+                <span class="bi bi-chevron-down collapse-arrow" id="inventarioArrow"></span>
+            </div>
+            <div class="nav-sub-section" id="inventarioSection">
+                <div class="nav-sub-menu">
+                    <NavLink class="nav-link nav-sub-link" href="inventario">
+                        <span class="bi bi-box-seam-fill-nav-menu" aria-hidden="true"></span> Inventarios
+                    </NavLink>
+                </div>
+            </div>
+        </div>
     </nav>
 </div>
 

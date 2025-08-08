@@ -268,4 +268,4 @@ C:\Users\Bryan\OneDrive\Desktop\Proyectos Blazor\ProyectoFarmaVita\ProyectoFarma
 C:\Users\Bryan\OneDrive\Desktop\Proyectos Blazor\ProyectoFarmaVita\ProyectoFarmaVita\obj\Debug\net9.0\ProyectoFarmaVita.pdb
 C:\Users\Bryan\OneDrive\Desktop\Proyectos Blazor\ProyectoFarmaVita\ProyectoFarmaVita\obj\Debug\net9.0\ProyectoFarmaVita.genruntimeconfig.cache
 C:\Users\Bryan\OneDrive\Desktop\Proyectos Blazor\ProyectoFarmaVita\ProyectoFarmaVita\obj\Debug\net9.0\ref\ProyectoFarmaVita.dll
-C:\Users\Bryan\OneDrive\Desktop\Proyectos Blazor\ProyectoFarmaVita\ProyectoFarmaVita\obj\Debug\net9.0\compressed\85j1ijdi35-o0zet4juti.gz
+C:\Users\Bryan\OneDrive\Desktop\Proyectos Blazor\ProyectoFarmaVita\ProyectoFarmaVita\obj\Debug\net9.0\compressed\85j1ijdi35-nbdtz1cfey.gz

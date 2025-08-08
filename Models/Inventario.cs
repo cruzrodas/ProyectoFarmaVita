@@ -19,7 +19,7 @@ public partial class Inventario
 
     public DateTime? UltimaActualizacion { get; set; }
 
-    public virtual Producto? IdProductoNavigation { get; set; }
+    public virtual ICollection<Producto> Producto { get; set; } = new List<Producto>();
 
     public virtual ICollection<Sucursal> Sucursal { get; set; } = new List<Sucursal>();
 }

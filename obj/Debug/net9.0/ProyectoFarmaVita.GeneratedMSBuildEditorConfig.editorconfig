@@ -87,6 +87,14 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/InventarioPage/CrearEditarInventario.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJbnZlbnRhcmlvUGFnZVxDcmVhckVkaXRhckludmVudGFyaW8ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/InventarioPage/ListaInventario.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJbnZlbnRhcmlvUGFnZVxMaXN0YUludmVudGFyaW8ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Municipio/AgregarEditarMunicipio.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xNdW5pY2lwaW9cQWdyZWdhckVkaXRhck11bmljaXBpby5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 

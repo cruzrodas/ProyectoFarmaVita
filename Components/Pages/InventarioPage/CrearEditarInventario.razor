@@ -1,0 +1,560 @@
+﻿@page "/inventario/agregar"
+@page "/inventario/agregar/{IdInventario:int?}"
+
+@using ProyectoFarmaVita.Models
+@using ProyectoFarmaVita.Services.InventarioServices
+@using ProyectoFarmaVita.Services.ProductoService
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+
+@inject IInventarioService InventarioServices
+@inject IProductoService ProductoServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<h3 style="margin-bottom: 20px;">@(IdInventario.HasValue ? "Editar Inventario" : "Nuevo Inventario")</h3>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
+        @(IdInventario.HasValue ? "Editar Inventario" : "Agregar Nuevo Inventario")
+    </MudText>
+
+    <EditForm Model="inventarioForm" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <MudGrid>
+            <!-- Información básica del inventario -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-2">Información del Inventario</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Nombre del Inventario"
+                              @bind-Value="inventarioForm.NombreInventario"
+                              For="@(() => inventarioForm.NombreInventario)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El nombre del inventario es requerido"
+                              MaxLength="100"
+                              Counter="100"
+                              Immediate="true"
+                              OnBlur="ValidateNombreInventario" />
+
+                @if (!string.IsNullOrEmpty(nombreValidationMessage))
+                {
+                    <MudText Color="Color.Error" Typo="Typo.body2" Class="mt-1">@nombreValidationMessage</MudText>
+                }
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int?"
+                           Label="Producto Asociado"
+                           @bind-Value="inventario.IdProducto"
+                           For="@(() => inventario.IdProducto)"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           RequiredError="Debe seleccionar un producto"
+                           OnSelectionChanged="OnProductoSelected">
+                    @if (productos != null)
+                    {
+                        @foreach (var producto in productos)
+                        {
+                            <MudSelectItem T="int?" Value="@producto.IdProducto">
+                                <div>
+                                    <MudText Typo="Typo.body2">@producto.NombreProducto</MudText>
+                                    @if (!string.IsNullOrEmpty(producto.UnidadMedida))
+                                    {
+                                        <MudText Typo="Typo.caption" Style="color: gray;">@producto.UnidadMedida</MudText>
+                                    }
+                                </div>
+                            </MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <!-- Información de Stock -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Configuración de Stock</MudText>
+                <MudDivider />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int?"
+                                 Label="Cantidad Actual"
+                                 @bind-Value="inventario.Cantidad"
+                                 For="@(() => inventario.Cantidad)"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 HelperText="Cantidad actual en inventario"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Inventory" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int?"
+                                 Label="Stock Mínimo"
+                                 @bind-Value="inventario.StockMinimo"
+                                 For="@(() => inventario.StockMinimo)"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 HelperText="Cantidad mínima para alerta"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Warning" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int?"
+                                 Label="Stock Máximo"
+                                 @bind-Value="inventario.StockMaximo"
+                                 For="@(() => inventario.StockMaximo)"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 HelperText="Capacidad máxima de almacenamiento"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.TrendingUp" />
+            </MudItem>
+
+            <!-- Información del producto seleccionado -->
+            @if (productoSeleccionado != null)
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Información del Producto Seleccionado</MudText>
+                    <MudDivider />
+                </MudItem>
+
+                <MudItem xs="12" md="8">
+                    <MudPaper Elevation="1" Class="pa-3" Style="background-color: #f5f5f5;">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">Producto:</MudText>
+                                <MudText Typo="Typo.body2">@productoSeleccionado.NombreProducto</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">Unidad de Medida:</MudText>
+                                <MudText Typo="Typo.body2">@(productoSeleccionado.UnidadMedida ?? "No especificada")</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">Categoría:</MudText>
+                                <MudText Typo="Typo.body2">@(productoSeleccionado.IdCategoriaNavigation?.NombreCategoria ?? "Sin categoría")</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">Proveedor:</MudText>
+                                <MudText Typo="Typo.body2">@(productoSeleccionado.IdProveedorNavigation?.NombreProveedor ?? "Sin proveedor")</MudText>
+                            </MudItem>
+                            @if (productoSeleccionado.RequiereReceta == true || productoSeleccionado.MedicamentoControlado == true)
+                            {
+                                <MudItem xs="12">
+                                    <MudAlert Severity="Severity.Warning" Icon="@Icons.Material.Filled.Warning">
+                                        @if (productoSeleccionado.RequiereReceta == true)
+                                        {
+                                            <span>⚕️ Requiere Receta Médica</span>
+                                        }
+                                        @if (productoSeleccionado.MedicamentoControlado == true)
+                                        {
+                                            <span>🔒 Medicamento Controlado</span>
+                                        }
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Validaciones de stock -->
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="1" Class="pa-3">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight: bold;">Estado del Stock</MudText>
+                        @{
+                            var estadoStock = GetEstadoStock();
+                            var colorEstado = GetColorEstado(estadoStock);
+                        }
+                        <MudChip T="string" Color="@colorEstado" Icon="@GetIconEstado(estadoStock)" Size="Size.Medium">
+                            @estadoStock
+                        </MudChip>
+
+                        @if (inventario.StockMinimo.HasValue && inventario.StockMaximo.HasValue && inventario.StockMinimo >= inventario.StockMaximo)
+                        {
+                            <MudAlert Severity="Severity.Error" Class="mt-2">
+                                El stock mínimo no puede ser mayor o igual al stock máximo
+                            </MudAlert>
+                        }
+
+                        @if (inventario.Cantidad.HasValue && inventario.StockMinimo.HasValue && inventario.Cantidad <= inventario.StockMinimo)
+                        {
+                            <MudAlert Severity="Severity.Warning" Class="mt-2">
+                                Stock por debajo del mínimo recomendado
+                            </MudAlert>
+                        }
+                    </MudPaper>
+                </MudItem>
+            }
+
+            <!-- Historial de inventarios existentes para el producto (solo en edición) -->
+            @if (IdInventario.HasValue && inventariosRelacionados != null && inventariosRelacionados.Any())
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Otros Inventarios del Mismo Producto</MudText>
+                    <MudDivider />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTable T="Inventario" Items="@inventariosRelacionados" Dense="true" Hover="true" Bordered="true">
+                        <HeaderContent>
+                            <MudTh>Inventario</MudTh>
+                            <MudTh>Cantidad</MudTh>
+                            <MudTh>Stock Min/Max</MudTh>
+                            <MudTh>Estado</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="inventarioItem">
+                            <MudTd>@inventarioItem.NombreInventario</MudTd>
+                            <MudTd>@(inventarioItem.Cantidad ?? 0)</MudTd>
+                            <MudTd>@(inventarioItem.StockMinimo ?? 0) / @(inventarioItem.StockMaximo ?? 0)</MudTd>
+                            <MudTd>
+                                @{
+                                    var estado = GetEstadoStockInventario(inventarioItem);
+                                    var color = GetColorEstado(estado);
+                                }
+                                <MudChip T="string" Color="@color" Size="Size.Small">@estado</MudChip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+            }
+
+            <!-- Información adicional -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Información Adicional</MudText>
+                <MudDivider />
+            </MudItem>
+
+            @if (IdInventario.HasValue && inventario.UltimaActualizacion.HasValue)
+            {
+                <MudItem xs="12" md="6">
+                    <MudTextField Label="Última Actualización"
+                                  Value="@inventario.UltimaActualizacion.Value.ToString("dd/MM/yyyy HH:mm")"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Schedule" />
+                </MudItem>
+            }
+
+        </MudGrid>
+
+        <div class="d-flex justify-content-between mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => NavigationManager.NavigateTo("/inventario"))">
+                Regresar
+            </MudButton>
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(isSubmitting || !string.IsNullOrEmpty(nombreValidationMessage) || !IsFormValid())">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Guardando...</MudText>
+                }
+                else
+                {
+                    <MudText>@(IdInventario.HasValue ? "Actualizar" : "Guardar")</MudText>
+                }
+            </MudButton>
+        </div>
+
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int? IdInventario { get; set; }
+
+    private Inventario inventario = new Inventario();
+    private InventarioFormModel inventarioForm = new InventarioFormModel();
+    private List<Producto> productos = new();
+    private Producto? productoSeleccionado = null;
+    private List<Inventario> inventariosRelacionados = new();
+    private bool isSubmitting = false;
+    private string nombreValidationMessage = "";
+
+    // Modelo para el formulario con validaciones
+    public class InventarioFormModel
+    {
+        [Required(ErrorMessage = "El nombre del inventario es requerido")]
+        [StringLength(100, ErrorMessage = "El nombre no puede exceder los 100 caracteres")]
+        public string? NombreInventario { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadDropdownData();
+
+            if (IdInventario.HasValue)
+            {
+                try
+                {
+                    inventario = await InventarioServices.GetByIdAsync(IdInventario.Value);
+
+                    // Mapear los datos al formulario
+                    inventarioForm.NombreInventario = inventario.NombreInventario;
+
+                    // Cargar el producto seleccionado
+                    if (inventario.IdProducto.HasValue)
+                    {
+                        await LoadProductoSeleccionado(inventario.IdProducto.Value);
+                        await LoadInventariosRelacionados(inventario.IdProducto.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Error al cargar el inventario: {ex.Message}", Severity.Error);
+                    NavigationManager.NavigateTo("/inventario");
+                }
+            }
+            else
+            {
+                inventario = new Inventario();
+                inventarioForm = new InventarioFormModel();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al inicializar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadDropdownData()
+    {
+        try
+        {
+            await LoadProductos();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar datos: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadProductos()
+    {
+        try
+        {
+            productos = await ProductoServices.GetActivosAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar productos: {ex.Message}");
+            productos = new List<Producto>();
+        }
+    }
+
+    private async Task LoadProductoSeleccionado(int productoId)
+    {
+        try
+        {
+            productoSeleccionado = await ProductoServices.GetByIdAsync(productoId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar producto seleccionado: {ex.Message}");
+            productoSeleccionado = null;
+        }
+    }
+
+    private async Task LoadInventariosRelacionados(int productoId)
+    {
+        try
+        {
+            var todosInventarios = await InventarioServices.GetByProductoIdAsync(productoId);
+            // Excluir el inventario actual si estamos editando
+            if (IdInventario.HasValue)
+            {
+                inventariosRelacionados = todosInventarios.Where(i => i.IdInventario != IdInventario.Value).ToList();
+            }
+            else
+            {
+                inventariosRelacionados = todosInventarios;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar inventarios relacionados: {ex.Message}");
+            inventariosRelacionados = new List<Inventario>();
+        }
+    }
+
+    private async Task OnProductoSelected(int? productoId)
+    {
+        inventario.IdProducto = productoId;
+
+        if (productoId.HasValue)
+        {
+            await LoadProductoSeleccionado(productoId.Value);
+            await LoadInventariosRelacionados(productoId.Value);
+        }
+        else
+        {
+            productoSeleccionado = null;
+            inventariosRelacionados = new List<Inventario>();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ValidateNombreInventario()
+    {
+        nombreValidationMessage = "";
+
+        if (!string.IsNullOrEmpty(inventarioForm.NombreInventario))
+        {
+            try
+            {
+                // Verificar si ya existe un inventario con este nombre para el mismo producto
+                if (inventario.IdProducto.HasValue)
+                {
+                    var inventariosExistentes = await InventarioServices.GetByProductoIdAsync(inventario.IdProducto.Value);
+                    var existe = inventariosExistentes.Any(i =>
+                        i.NombreInventario.Equals(inventarioForm.NombreInventario, StringComparison.OrdinalIgnoreCase) &&
+                        (!IdInventario.HasValue || i.IdInventario != IdInventario.Value));
+
+                    if (existe)
+                    {
+                        nombreValidationMessage = "Ya existe un inventario con este nombre para el producto seleccionado";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en validación: {ex.Message}");
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private bool IsFormValid()
+    {
+        return !string.IsNullOrEmpty(inventarioForm.NombreInventario) &&
+               inventario.IdProducto.HasValue &&
+               string.IsNullOrEmpty(nombreValidationMessage) &&
+               (inventario.StockMinimo == null || inventario.StockMaximo == null ||
+                inventario.StockMinimo < inventario.StockMaximo);
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Validar una vez más antes de guardar
+            await ValidateNombreInventario();
+
+            if (!string.IsNullOrEmpty(nombreValidationMessage))
+            {
+                Snackbar.Add("Por favor, corrija los errores antes de guardar", Severity.Warning);
+                return;
+            }
+
+            if (!IsFormValid())
+            {
+                Snackbar.Add("Por favor, complete todos los campos requeridos", Severity.Warning);
+                return;
+            }
+
+            // Mapear datos del formulario al modelo
+            if (IdInventario.HasValue)
+            {
+                inventario.IdInventario = IdInventario.Value;
+            }
+
+            inventario.NombreInventario = inventarioForm.NombreInventario?.Trim();
+            inventario.UltimaActualizacion = DateTime.Now;
+
+            var result = await InventarioServices.AddUpdateAsync(inventario);
+
+            if (result)
+            {
+                var message = IdInventario.HasValue ? "Inventario actualizado correctamente" : "Inventario creado correctamente";
+                Snackbar.Add(message, Severity.Success);
+                NavigationManager.NavigateTo("/inventario");
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el inventario", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error en HandleSubmit: {ex.Message}");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    // Métodos auxiliares para estados y colores
+    private string GetEstadoStock()
+    {
+        if (inventario.Cantidad == null || inventario.Cantidad == 0)
+            return "Sin Stock";
+
+        if (inventario.StockMinimo.HasValue && inventario.Cantidad <= inventario.StockMinimo)
+            return "Stock Bajo";
+
+        if (inventario.StockMaximo.HasValue && inventario.Cantidad >= inventario.StockMaximo)
+            return "Stock Alto";
+
+        return "Stock Normal";
+    }
+
+    private string GetEstadoStockInventario(Inventario inv)
+    {
+        if (inv.Cantidad == null || inv.Cantidad == 0)
+            return "Sin Stock";
+
+        if (inv.StockMinimo.HasValue && inv.Cantidad <= inv.StockMinimo)
+            return "Stock Bajo";
+
+        if (inv.StockMaximo.HasValue && inv.Cantidad >= inv.StockMaximo)
+            return "Stock Alto";
+
+        return "Stock Normal";
+    }
+
+    private Color GetColorEstado(string estado)
+    {
+        return estado switch
+        {
+            "Sin Stock" => Color.Error,
+            "Stock Bajo" => Color.Warning,
+            "Stock Alto" => Color.Info,
+            "Stock Normal" => Color.Success,
+            _ => Color.Default
+        };
+    }
+
+    private string GetIconEstado(string estado)
+    {
+        return estado switch
+        {
+            "Sin Stock" => Icons.Material.Filled.RemoveCircle,
+            "Stock Bajo" => Icons.Material.Filled.Warning,
+            "Stock Alto" => Icons.Material.Filled.TrendingUp,
+            "Stock Normal" => Icons.Material.Filled.CheckCircle,
+            _ => Icons.Material.Filled.Inventory
+        };
+    }
+}

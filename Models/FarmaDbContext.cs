@@ -329,10 +329,6 @@ public partial class FarmaDbContext : DbContext
             entity.Property(e => e.UltimaActualizacion)
                 .HasColumnType("datetime")
                 .HasColumnName("Ultima_Actualizacion");
-
-            entity.HasOne(d => d.IdProductoNavigation).WithMany(p => p.Inventario)
-                .HasForeignKey(d => d.IdProducto)
-                .HasConstraintName("FK_Inventario_Producto");
         });
 
         modelBuilder.Entity<Municipio>(entity =>
@@ -475,6 +471,7 @@ public partial class FarmaDbContext : DbContext
             entity.Property(e => e.FechaVencimiento).HasColumnName("Fecha_Vencimiento");
             entity.Property(e => e.IdCategoria).HasColumnName("Id_Categoria");
             entity.Property(e => e.IdImagen).HasColumnName("Id_Imagen");
+            entity.Property(e => e.IdInventario).HasColumnName("Id_Inventario");
             entity.Property(e => e.IdProveedor).HasColumnName("Id_Proveedor");
             entity.Property(e => e.MedicamentoControlado).HasColumnName("Medicamento_Controlado");
             entity.Property(e => e.NivelReorden).HasColumnName("Nivel_Reorden");
@@ -497,6 +494,10 @@ public partial class FarmaDbContext : DbContext
             entity.HasOne(d => d.IdImagenNavigation).WithMany(p => p.Producto)
                 .HasForeignKey(d => d.IdImagen)
                 .HasConstraintName("FK_Producto_ImagenProducto");
+
+            entity.HasOne(d => d.IdInventarioNavigation).WithMany(p => p.Producto)
+                .HasForeignKey(d => d.IdInventario)
+                .HasConstraintName("FK_Producto_Inventario");
 
             entity.HasOne(d => d.IdProveedorNavigation).WithMany(p => p.Producto)
                 .HasForeignKey(d => d.IdProveedor)
