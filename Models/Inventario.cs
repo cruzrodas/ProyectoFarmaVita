@@ -9,12 +9,6 @@ public partial class Inventario
 
     public string? NombreInventario { get; set; }
 
-    public int? Cantidad { get; set; }
-
-    public int? StockMinimo { get; set; }
-
-    public int? StockMaximo { get; set; }
-
     public DateTime? UltimaActualizacion { get; set; }
 
     public virtual ICollection<InventarioProducto> InventarioProducto { get; set; } = new List<InventarioProducto>();

@@ -326,8 +326,6 @@ public partial class FarmaDbContext : DbContext
                 .HasMaxLength(100)
                 .IsUnicode(false)
                 .HasColumnName("Nombre_Inventario");
-            entity.Property(e => e.StockMaximo).HasColumnName("Stock_Maximo");
-            entity.Property(e => e.StockMinimo).HasColumnName("Stock_Minimo");
             entity.Property(e => e.UltimaActualizacion)
                 .HasColumnType("datetime")
                 .HasColumnName("Ultima_Actualizacion");
