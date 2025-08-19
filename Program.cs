@@ -9,7 +9,7 @@ using ProyectoFarmaVita.Services.DepartamentoServices;
 using ProyectoFarmaVita.Services.DireccionServices;
 using ProyectoFarmaVita.Services.EstadoCivilServices;
 using ProyectoFarmaVita.Services.GeneroServices;
-using ProyectoFarmaVita.Services.InventarioServices;
+using ProyectoFarmaVita.Services.InventarioService;
 using ProyectoFarmaVita.Services.MunicipioService;
 using ProyectoFarmaVita.Services.MunicipioServices;
 using ProyectoFarmaVita.Services.PersonaServices;

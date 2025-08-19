@@ -2,7 +2,7 @@
 
 @using System.Text.Json
 @using ProyectoFarmaVita.Models
-@using ProyectoFarmaVita.Services.InventarioServices
+@using ProyectoFarmaVita.Services.InventarioService
 @using MudBlazor
 
 @inject IInventarioService InventarioServices
@@ -103,8 +103,8 @@
                     <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.NombreInventario</MudText>
                 </MudTd>
                 <MudTd DataLabel="Cantidad">
-                    <MudChip T="string" Size="Size.Small" Color="@GetStockColor(context)">
-                        @(context.Cantidad?.ToString() ?? "0")
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                        @(context.InventarioProducto?.Sum(ip => ip.Cantidad) ?? 0)
                     </MudChip>
                 </MudTd>
                 <MudTd DataLabel="Productos">
@@ -132,23 +132,12 @@
                 </MudTd>
                 <MudTd DataLabel="Acciones" Class="acciones">
                     <div class="d-flex gap-1">
-                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                       Color="Color.Primary"
-                                       Size="Size.Small"
-                                       Title="Ver productos"
-                                       OnClick="@(() => VerProductos(context.IdInventario))" />
 
                         <MudIconButton Icon="@Icons.Material.Filled.Edit"
                                        Color="Color.Primary"
                                        Size="Size.Small"
                                        Title="Editar inventario"
                                        OnClick="@(() => NavigateToEdit(context.IdInventario))" />
-
-                        <MudIconButton Icon="@Icons.Material.Filled.Add"
-                                       Color="Color.Success"
-                                       Size="Size.Small"
-                                       Title="Agregar productos"
-                                       OnClick="@(() => AgregarProductos(context.IdInventario))" />
 
                         <MudIconButton Icon="@Icons.Material.Filled.Assessment"
                                        Color="Color.Info"
@@ -202,7 +191,7 @@
                 ["TotalInventarios"] = inventarios.Count,
                 ["InventariosNormales"] = inventarios.Count - inventariosBajoStock.Count,
                 ["InventariosBajoStock"] = inventariosBajoStock.Count,
-                ["InventariosSinStock"] = inventarios.Count(i => (i.Cantidad ?? 0) == 0)
+                ["InventariosSinStock"] = inventarios.Count(i => !(i.InventarioProducto?.Any() ?? false))
             };
         }
         catch (Exception ex)
@@ -282,15 +271,16 @@
 
             if (!lowStockInventories.Any())
             {
-                Snackbar.Add("No hay inventarios con stock bajo", Severity.Info);
+                Snackbar.Add("No hay inventarios con productos de stock bajo", Severity.Info);
                 return;
             }
 
             // Crear mensaje simple para mostrar
-            var message = "Inventarios con stock bajo:\n\n";
+            var message = "Inventarios con productos de stock bajo:\n\n";
             foreach (var inventario in lowStockInventories)
             {
-                message += $"• {inventario.NombreInventario}: {inventario.Cantidad}/{inventario.StockMinimo}\n";
+                var productosConStockBajo = inventario.InventarioProducto?.Count(ip => ip.Cantidad <= ip.StockMinimo) ?? 0;
+                message += $"• {inventario.NombreInventario}: {productosConStockBajo} productos con stock bajo\n";
             }
 
             await DialogService.ShowMessageBox("Inventarios con Stock Bajo", message, yesText: "Cerrar");
@@ -338,28 +328,18 @@
         }
     }
 
-    private Color GetStockColor(Inventario inventario)
-    {
-        var cantidad = inventario.Cantidad ?? 0;
-        var stockMinimo = inventario.StockMinimo ?? 0;
-
-        if (cantidad == 0) return Color.Error;
-        if (cantidad <= stockMinimo) return Color.Warning;
-        return Color.Success;
-    }
-
     private (Color Color, string Text) GetStockStatus(Inventario inventario)
     {
-        var cantidad = inventario.Cantidad ?? 0;
-        var stockMinimo = inventario.StockMinimo ?? 0;
-        var stockMaximo = inventario.StockMaximo ?? int.MaxValue;
+        if (inventario.InventarioProducto == null || !inventario.InventarioProducto.Any())
+            return (Color.Error, "Sin Productos");
 
-        if (cantidad == 0)
-            return (Color.Error, "Sin Stock");
-        else if (cantidad <= stockMinimo)
-            return (Color.Warning, "Stock Bajo");
-        else if (cantidad > stockMaximo)
-            return (Color.Info, "Sobre Stock");
+        var productosConStockBajo = inventario.InventarioProducto.Count(ip => ip.Cantidad <= ip.StockMinimo);
+        var productosSinStock = inventario.InventarioProducto.Count(ip => (ip.Cantidad ?? 0) == 0);
+
+        if (productosSinStock > 0)
+            return (Color.Error, $"Sin Stock ({productosSinStock})");
+        else if (productosConStockBajo > 0)
+            return (Color.Warning, $"Stock Bajo ({productosConStockBajo})");
         else
             return (Color.Success, "Normal");
     }
@@ -415,6 +395,4 @@
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
     }
-
-
 }

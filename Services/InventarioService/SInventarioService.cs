@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ProyectoFarmaVita.Models;
-using ProyectoFarmaVita.Services.InventarioServices;
+using ProyectoFarmaVita.Services.InventarioService;
 
-namespace ProyectoFarmaVita.Services.InventarioServices
+namespace ProyectoFarmaVita.Services.InventarioService
 {
     public class SInventarioService : IInventarioService
     {
@@ -15,66 +15,102 @@ namespace ProyectoFarmaVita.Services.InventarioServices
 
         public async Task<bool> AddUpdateAsync(Inventario inventario)
         {
-            if (inventario.IdInventario > 0)
+            // Usar la estrategia de ejecución configurada
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                // Buscar el inventario existente en la base de datos
-                var existingInventario = await _farmaDbContext.Inventario.FindAsync(inventario.IdInventario);
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
 
-                if (existingInventario != null)
+                try
                 {
-                    // Actualizar las propiedades existentes
-                    existingInventario.NombreInventario = inventario.NombreInventario;
-                    existingInventario.Cantidad = inventario.Cantidad;
-                    existingInventario.StockMinimo = inventario.StockMinimo;
-                    existingInventario.StockMaximo = inventario.StockMaximo;
-                    existingInventario.UltimaActualizacion = DateTime.Now;
+                    if (inventario.IdInventario > 0)
+                    {
+                        // Actualizar inventario existente
+                        var existingInventario = await _farmaDbContext.Inventario.FindAsync(inventario.IdInventario);
 
-                    // Marcar el inventario como modificado
-                    _farmaDbContext.Inventario.Update(existingInventario);
+                        if (existingInventario != null)
+                        {
+                            existingInventario.NombreInventario = inventario.NombreInventario;
+                            existingInventario.UltimaActualizacion = DateTime.Now;
+
+                            _farmaDbContext.Inventario.Update(existingInventario);
+                        }
+                        else
+                        {
+                            await transaction.RollbackAsync();
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        // Crear nuevo inventario
+                        inventario.UltimaActualizacion = DateTime.Now;
+                        _farmaDbContext.Inventario.Add(inventario);
+                    }
+
+                    await _farmaDbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return true;
                 }
-                else
+                catch (Exception ex)
                 {
-                    return false; // Si no se encontró el inventario, devolver false
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en AddUpdateAsync: {ex.Message}");
+                    return false;
                 }
-            }
-            else
-            {
-                inventario.UltimaActualizacion = DateTime.Now;
-                inventario.Cantidad = inventario.Cantidad ?? 0;
-
-                // Si no hay ID, se trata de un nuevo inventario, agregarlo
-                _farmaDbContext.Inventario.Add(inventario);
-            }
-
-            // Guardar los cambios en la base de datos
-            await _farmaDbContext.SaveChangesAsync();
-            return true; // Retornar true si se ha agregado o actualizado correctamente
+            });
         }
 
         public async Task<bool> DeleteAsync(int id_inventario)
         {
-            var inventario = await _farmaDbContext.Inventario
-                .Include(i => i.Sucursal)
-                .Include(i => i.InventarioProducto)
-                .FirstOrDefaultAsync(i => i.IdInventario == id_inventario);
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
 
-            if (inventario != null)
+            return await strategy.ExecuteAsync(async () =>
             {
-                // Verificar si el inventario tiene dependencias
-                bool hasDependencies = (inventario.Sucursal != null && inventario.Sucursal.Any()) ||
-                                     (inventario.InventarioProducto != null && inventario.InventarioProducto.Any());
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
 
-                if (hasDependencies)
+                try
                 {
-                    return false; // No se puede eliminar si tiene dependencias
-                }
+                    var inventario = await _farmaDbContext.Inventario
+                        .Include(i => i.Sucursal)
+                        .Include(i => i.InventarioProducto)
+                        .FirstOrDefaultAsync(i => i.IdInventario == id_inventario);
 
-                // Eliminar físicamente el inventario (no tiene campo Activo en el modelo actual)
-                _farmaDbContext.Inventario.Remove(inventario);
-                await _farmaDbContext.SaveChangesAsync();
-                return true;
-            }
-            return false;
+                    if (inventario != null)
+                    {
+                        // Verificar si el inventario tiene dependencias críticas
+                        bool hasCriticalDependencies = inventario.Sucursal?.Any() == true;
+
+                        if (hasCriticalDependencies)
+                        {
+                            await transaction.RollbackAsync();
+                            return false; // No se puede eliminar si tiene sucursales asociadas
+                        }
+
+                        // Primero eliminar todos los productos del inventario
+                        if (inventario.InventarioProducto?.Any() == true)
+                        {
+                            _farmaDbContext.InventarioProducto.RemoveRange(inventario.InventarioProducto);
+                        }
+
+                        // Luego eliminar el inventario
+                        _farmaDbContext.Inventario.Remove(inventario);
+                        await _farmaDbContext.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+
+                    await transaction.RollbackAsync();
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en DeleteAsync: {ex.Message}");
+                    return false;
+                }
+            });
         }
 
         public async Task<List<Inventario>> GetAllAsync()
@@ -125,7 +161,7 @@ namespace ProyectoFarmaVita.Services.InventarioServices
                 query = query.Where(i => i.NombreInventario.Contains(searchTerm));
             }
 
-            // Ordenamiento basado en el campo NombreInventario
+            // Ordenamiento
             query = sortAscending
                 ? query.OrderBy(i => i.NombreInventario).ThenBy(i => i.IdInventario)
                 : query.OrderByDescending(i => i.NombreInventario).ThenByDescending(i => i.IdInventario);
@@ -152,108 +188,145 @@ namespace ProyectoFarmaVita.Services.InventarioServices
             return await _farmaDbContext.Inventario
                 .Include(i => i.InventarioProducto)
                     .ThenInclude(ip => ip.IdProductoNavigation)
-                .Where(i => i.Cantidad <= i.StockMinimo)
-                .OrderBy(i => i.Cantidad)
+                .Where(i => i.InventarioProducto.Any(ip =>
+                    ip.StockMinimo.HasValue &&
+                    ip.Cantidad.HasValue &&
+                    ip.Cantidad <= ip.StockMinimo))
+                .OrderBy(i => i.NombreInventario)
                 .ToListAsync();
         }
 
-        // Métodos específicos para gestión de productos en inventario
+        // MÉTODOS PARA GESTIÓN DE PRODUCTOS EN INVENTARIO
+
         public async Task<bool> AddProductToInventoryAsync(int inventarioId, int productoId, long cantidad, long? stockMinimo = null, long? stockMaximo = null)
         {
-            try
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                // Verificar si ya existe el producto en el inventario
-                var existingProducto = await _farmaDbContext.InventarioProducto
-                    .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
 
-                if (existingProducto != null)
+                try
                 {
-                    // Actualizar cantidad existente
-                    existingProducto.Cantidad = (existingProducto.Cantidad ?? 0) + cantidad;
-                    if (stockMinimo.HasValue) existingProducto.StockMinimo = stockMinimo;
-                    if (stockMaximo.HasValue) existingProducto.StockMaximo = stockMaximo;
+                    // Verificar si ya existe el producto en el inventario
+                    var existingProducto = await _farmaDbContext.InventarioProducto
+                        .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
 
-                    _farmaDbContext.InventarioProducto.Update(existingProducto);
-                }
-                else
-                {
-                    // Agregar nuevo producto al inventario
-                    var nuevoInventarioProducto = new InventarioProducto
+                    if (existingProducto != null)
                     {
-                        IdInventario = inventarioId,
-                        IdProducto = productoId,
-                        Cantidad = cantidad,
-                        StockMinimo = stockMinimo,
-                        StockMaximo = stockMaximo
-                    };
+                        // Actualizar producto existente
+                        existingProducto.Cantidad = cantidad; // Reemplazar cantidad en lugar de sumar
+                        if (stockMinimo.HasValue) existingProducto.StockMinimo = stockMinimo;
+                        if (stockMaximo.HasValue) existingProducto.StockMaximo = stockMaximo;
 
-                    _farmaDbContext.InventarioProducto.Add(nuevoInventarioProducto);
+                        _farmaDbContext.InventarioProducto.Update(existingProducto);
+                    }
+                    else
+                    {
+                        // Generar nuevo ID para InventarioProducto
+                        var maxId = await _farmaDbContext.InventarioProducto
+                            .MaxAsync(ip => (int?)ip.IdInventarioProducto) ?? 0;
+
+                        // Agregar nuevo producto al inventario
+                        var nuevoInventarioProducto = new InventarioProducto
+                        {
+                            IdInventarioProducto = maxId + 1,
+                            IdInventario = inventarioId,
+                            IdProducto = productoId,
+                            Cantidad = cantidad,
+                            StockMinimo = stockMinimo,
+                            StockMaximo = stockMaximo
+                        };
+
+                        _farmaDbContext.InventarioProducto.Add(nuevoInventarioProducto);
+                    }
+
+                    // Actualizar fecha de última modificación del inventario
+                    await UpdateInventoryTimestampAsync(inventarioId);
+
+                    await _farmaDbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return true;
                 }
-
-                // Actualizar la cantidad total del inventario
-                await UpdateInventoryTotalQuantityAsync(inventarioId);
-
-                await _farmaDbContext.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error en AddProductToInventoryAsync: {ex.Message}");
-                return false;
-            }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en AddProductToInventoryAsync: {ex.Message}");
+                    return false;
+                }
+            });
         }
 
         public async Task<bool> RemoveProductFromInventoryAsync(int inventarioId, int productoId)
         {
-            try
-            {
-                var inventarioProducto = await _farmaDbContext.InventarioProducto
-                    .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
 
-                if (inventarioProducto != null)
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
+
+                try
                 {
-                    _farmaDbContext.InventarioProducto.Remove(inventarioProducto);
+                    var inventarioProducto = await _farmaDbContext.InventarioProducto
+                        .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
 
-                    // Actualizar la cantidad total del inventario
-                    await UpdateInventoryTotalQuantityAsync(inventarioId);
+                    if (inventarioProducto != null)
+                    {
+                        _farmaDbContext.InventarioProducto.Remove(inventarioProducto);
+                        await UpdateInventoryTimestampAsync(inventarioId);
 
-                    await _farmaDbContext.SaveChangesAsync();
-                    return true;
+                        await _farmaDbContext.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+
+                    await transaction.RollbackAsync();
+                    return false;
                 }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error en RemoveProductFromInventoryAsync: {ex.Message}");
-                return false;
-            }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en RemoveProductFromInventoryAsync: {ex.Message}");
+                    return false;
+                }
+            });
         }
 
         public async Task<bool> UpdateProductQuantityAsync(int inventarioId, int productoId, long nuevaCantidad)
         {
-            try
-            {
-                var inventarioProducto = await _farmaDbContext.InventarioProducto
-                    .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
 
-                if (inventarioProducto != null)
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
+
+                try
                 {
-                    inventarioProducto.Cantidad = nuevaCantidad;
-                    _farmaDbContext.InventarioProducto.Update(inventarioProducto);
+                    var inventarioProducto = await _farmaDbContext.InventarioProducto
+                        .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
 
-                    // Actualizar la cantidad total del inventario
-                    await UpdateInventoryTotalQuantityAsync(inventarioId);
+                    if (inventarioProducto != null)
+                    {
+                        inventarioProducto.Cantidad = nuevaCantidad;
+                        _farmaDbContext.InventarioProducto.Update(inventarioProducto);
 
-                    await _farmaDbContext.SaveChangesAsync();
-                    return true;
+                        await UpdateInventoryTimestampAsync(inventarioId);
+
+                        await _farmaDbContext.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+
+                    await transaction.RollbackAsync();
+                    return false;
                 }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error en UpdateProductQuantityAsync: {ex.Message}");
-                return false;
-            }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en UpdateProductQuantityAsync: {ex.Message}");
+                    return false;
+                }
+            });
         }
 
         public async Task<List<InventarioProducto>> GetProductsByInventoryAsync(int inventarioId)
@@ -274,7 +347,9 @@ namespace ProyectoFarmaVita.Services.InventarioServices
                 .Include(ip => ip.IdProductoNavigation)
                     .ThenInclude(p => p.IdCategoriaNavigation)
                 .Include(ip => ip.IdInventarioNavigation)
-                .Where(ip => ip.Cantidad <= ip.StockMinimo);
+                .Where(ip => ip.StockMinimo.HasValue &&
+                           ip.Cantidad.HasValue &&
+                           ip.Cantidad <= ip.StockMinimo);
 
             if (inventarioId.HasValue)
             {
@@ -283,6 +358,7 @@ namespace ProyectoFarmaVita.Services.InventarioServices
 
             return await query
                 .OrderBy(ip => ip.Cantidad)
+                .ThenBy(ip => ip.IdProductoNavigation.NombreProducto)
                 .ToListAsync();
         }
 
@@ -296,42 +372,44 @@ namespace ProyectoFarmaVita.Services.InventarioServices
             if (inventario == null)
                 return new Dictionary<string, object>();
 
-            var productos = inventario.InventarioProducto.ToList();
+            var productos = inventario.InventarioProducto.Where(ip => ip.IdProductoNavigation != null).ToList();
 
             var stats = new Dictionary<string, object>
             {
                 ["TotalProductos"] = productos.Count,
                 ["CantidadTotal"] = productos.Sum(p => p.Cantidad ?? 0),
-                ["ProductosBajoStock"] = productos.Count(p => p.Cantidad <= p.StockMinimo),
+                ["ProductosBajoStock"] = productos.Count(p =>
+                    p.StockMinimo.HasValue &&
+                    p.Cantidad.HasValue &&
+                    p.Cantidad <= p.StockMinimo),
                 ["ProductosSinStock"] = productos.Count(p => (p.Cantidad ?? 0) == 0),
-                ["ProductosSobreStock"] = productos.Count(p => p.StockMaximo.HasValue && p.Cantidad > p.StockMaximo),
+                ["ProductosSobreStock"] = productos.Count(p =>
+                    p.StockMaximo.HasValue &&
+                    p.Cantidad.HasValue &&
+                    p.Cantidad > p.StockMaximo),
                 ["ValorTotalInventario"] = productos
-                    .Where(p => p.IdProductoNavigation?.PrecioCompra.HasValue == true)
+                    .Where(p => p.IdProductoNavigation?.PrecioCompra.HasValue == true && p.Cantidad.HasValue)
                     .Sum(p => (p.Cantidad ?? 0) * (decimal)(p.IdProductoNavigation?.PrecioCompra ?? 0))
             };
 
             return stats;
         }
 
-        private async Task UpdateInventoryTotalQuantityAsync(int inventarioId)
+        private async Task UpdateInventoryTimestampAsync(int inventarioId)
         {
-            var totalQuantity = await _farmaDbContext.InventarioProducto
-                .Where(ip => ip.IdInventario == inventarioId)
-                .SumAsync(ip => ip.Cantidad ?? 0);
-
             var inventario = await _farmaDbContext.Inventario.FindAsync(inventarioId);
             if (inventario != null)
             {
-                inventario.Cantidad = (int)totalQuantity;
                 inventario.UltimaActualizacion = DateTime.Now;
                 _farmaDbContext.Inventario.Update(inventario);
             }
         }
 
-        // Métodos de búsqueda y filtrado
+        // MÉTODOS DE BÚSQUEDA Y FILTRADO
+
         public async Task<List<Producto>> SearchAvailableProductsAsync(string searchTerm)
         {
-            if (string.IsNullOrEmpty(searchTerm))
+            if (string.IsNullOrEmpty(searchTerm) || searchTerm.Length < 2)
                 return new List<Producto>();
 
             return await _farmaDbContext.Producto
@@ -341,71 +419,339 @@ namespace ProyectoFarmaVita.Services.InventarioServices
                            (p.NombreProducto.Contains(searchTerm) ||
                             (p.DescrpcionProducto != null && p.DescrpcionProducto.Contains(searchTerm))))
                 .OrderBy(p => p.NombreProducto)
-                .Take(20) // Limitar resultados para performance
+                .Take(20)
                 .ToListAsync();
         }
 
+        // MÉTODO OPTIMIZADO PARA TRANSFERENCIAS
         public async Task<bool> TransferProductBetweenInventoriesAsync(int fromInventoryId, int toInventoryId, int productoId, long cantidad)
         {
-            try
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
                 using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
 
-                // Verificar stock disponible en inventario origen
-                var fromProduct = await _farmaDbContext.InventarioProducto
-                    .FirstOrDefaultAsync(ip => ip.IdInventario == fromInventoryId && ip.IdProducto == productoId);
-
-                if (fromProduct == null || (fromProduct.Cantidad ?? 0) < cantidad)
+                try
                 {
-                    return false; // No hay suficiente stock
-                }
+                    // Verificar stock disponible en inventario origen
+                    var fromProduct = await _farmaDbContext.InventarioProducto
+                        .FirstOrDefaultAsync(ip => ip.IdInventario == fromInventoryId && ip.IdProducto == productoId);
 
-                // Reducir cantidad en inventario origen
-                fromProduct.Cantidad = (fromProduct.Cantidad ?? 0) - cantidad;
-                _farmaDbContext.InventarioProducto.Update(fromProduct);
-
-                // Si la cantidad llega a 0, eliminar el registro
-                if (fromProduct.Cantidad <= 0)
-                {
-                    _farmaDbContext.InventarioProducto.Remove(fromProduct);
-                }
-
-                // Agregar o incrementar cantidad en inventario destino
-                var toProduct = await _farmaDbContext.InventarioProducto
-                    .FirstOrDefaultAsync(ip => ip.IdInventario == toInventoryId && ip.IdProducto == productoId);
-
-                if (toProduct != null)
-                {
-                    toProduct.Cantidad = (toProduct.Cantidad ?? 0) + cantidad;
-                    _farmaDbContext.InventarioProducto.Update(toProduct);
-                }
-                else
-                {
-                    var newInventarioProducto = new InventarioProducto
+                    if (fromProduct == null || (fromProduct.Cantidad ?? 0) < cantidad)
                     {
-                        IdInventario = toInventoryId,
-                        IdProducto = productoId,
-                        Cantidad = cantidad,
-                        StockMinimo = fromProduct.StockMinimo,
-                        StockMaximo = fromProduct.StockMaximo
-                    };
-                    _farmaDbContext.InventarioProducto.Add(newInventarioProducto);
+                        await transaction.RollbackAsync();
+                        return false; // No hay suficiente stock
+                    }
+
+                    // Reducir cantidad en inventario origen
+                    fromProduct.Cantidad = (fromProduct.Cantidad ?? 0) - cantidad;
+                    _farmaDbContext.InventarioProducto.Update(fromProduct);
+
+                    // Si la cantidad llega a 0, eliminar el registro
+                    if (fromProduct.Cantidad <= 0)
+                    {
+                        _farmaDbContext.InventarioProducto.Remove(fromProduct);
+                    }
+
+                    // Agregar o incrementar cantidad en inventario destino
+                    var toProduct = await _farmaDbContext.InventarioProducto
+                        .FirstOrDefaultAsync(ip => ip.IdInventario == toInventoryId && ip.IdProducto == productoId);
+
+                    if (toProduct != null)
+                    {
+                        toProduct.Cantidad = (toProduct.Cantidad ?? 0) + cantidad;
+                        _farmaDbContext.InventarioProducto.Update(toProduct);
+                    }
+                    else
+                    {
+                        var maxId = await _farmaDbContext.InventarioProducto
+                            .MaxAsync(ip => (int?)ip.IdInventarioProducto) ?? 0;
+
+                        var newInventarioProducto = new InventarioProducto
+                        {
+                            IdInventarioProducto = maxId + 1,
+                            IdInventario = toInventoryId,
+                            IdProducto = productoId,
+                            Cantidad = cantidad,
+                            StockMinimo = fromProduct.StockMinimo,
+                            StockMaximo = fromProduct.StockMaximo
+                        };
+                        _farmaDbContext.InventarioProducto.Add(newInventarioProducto);
+                    }
+
+                    // Actualizar timestamps de ambos inventarios
+                    await UpdateInventoryTimestampAsync(fromInventoryId);
+                    await UpdateInventoryTimestampAsync(toInventoryId);
+
+                    await _farmaDbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return true;
                 }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en TransferProductBetweenInventoriesAsync: {ex.Message}");
+                    return false;
+                }
+            });
+        }
 
-                // Actualizar totales de ambos inventarios
-                await UpdateInventoryTotalQuantityAsync(fromInventoryId);
-                await UpdateInventoryTotalQuantityAsync(toInventoryId);
+        // MÉTODO OPTIMIZADO PARA CREAR INVENTARIO CON PRODUCTOS
+        public async Task<bool> CreateInventoryWithProductsAsync(Inventario inventario, List<InventarioProducto> productos)
+        {
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
 
-                await _farmaDbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return true;
-            }
-            catch (Exception ex)
+            return await strategy.ExecuteAsync(async () =>
             {
-                Console.WriteLine($"Error en TransferProductBetweenInventoriesAsync: {ex.Message}");
-                return false;
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
+
+                try
+                {
+                    // Crear el inventario
+                    inventario.UltimaActualizacion = DateTime.Now;
+                    _farmaDbContext.Inventario.Add(inventario);
+                    await _farmaDbContext.SaveChangesAsync(); // Guardar para obtener el ID
+
+                    // Agregar los productos si existen
+                    if (productos?.Any() == true)
+                    {
+                        var maxId = await _farmaDbContext.InventarioProducto
+                            .MaxAsync(ip => (int?)ip.IdInventarioProducto) ?? 0;
+
+                        foreach (var producto in productos)
+                        {
+                            producto.IdInventarioProducto = ++maxId;
+                            producto.IdInventario = inventario.IdInventario;
+                            _farmaDbContext.InventarioProducto.Add(producto);
+                        }
+
+                        await _farmaDbContext.SaveChangesAsync();
+                    }
+
+                    await transaction.CommitAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en CreateInventoryWithProductsAsync: {ex.Message}");
+                    return false;
+                }
+            });
+        }
+
+        // MÉTODO PARA LIMPIAR PRODUCTOS DE UN INVENTARIO
+        public async Task<bool> ClearInventoryProductsAsync(int inventarioId)
+        {
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
+
+                try
+                {
+                    var productosInventario = await _farmaDbContext.InventarioProducto
+                        .Where(ip => ip.IdInventario == inventarioId)
+                        .ToListAsync();
+
+                    if (productosInventario.Any())
+                    {
+                        _farmaDbContext.InventarioProducto.RemoveRange(productosInventario);
+                        await UpdateInventoryTimestampAsync(inventarioId);
+                        await _farmaDbContext.SaveChangesAsync();
+                    }
+
+                    await transaction.CommitAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en ClearInventoryProductsAsync: {ex.Message}");
+                    return false;
+                }
+            });
+        }
+
+        // MÉTODO PARA OBTENER RESUMEN DE INVENTARIOS
+        public async Task<List<dynamic>> GetInventorySummaryAsync()
+        {
+            return await _farmaDbContext.Inventario
+                .Include(i => i.InventarioProducto)
+                    .ThenInclude(ip => ip.IdProductoNavigation)
+                .Select(i => new
+                {
+                    i.IdInventario,
+                    i.NombreInventario,
+                    i.UltimaActualizacion,
+                    TotalProductos = i.InventarioProducto.Count,
+                    TotalCantidad = i.InventarioProducto.Sum(ip => ip.Cantidad ?? 0),
+                    ProductosBajoStock = i.InventarioProducto.Count(ip =>
+                        ip.StockMinimo.HasValue &&
+                        ip.Cantidad.HasValue &&
+                        ip.Cantidad <= ip.StockMinimo),
+                    ValorTotal = i.InventarioProducto
+                        .Where(ip => ip.IdProductoNavigation.PrecioCompra.HasValue && ip.Cantidad.HasValue)
+                        .Sum(ip => (ip.Cantidad ?? 0) * (decimal)(ip.IdProductoNavigation.PrecioCompra ?? 0))
+                })
+                .Cast<dynamic>()
+                .ToListAsync();
+        }
+
+        // MÉTODO PARA VALIDAR EXISTENCIA DE PRODUCTO EN INVENTARIO
+        public async Task<bool> ProductExistsInInventoryAsync(int inventarioId, int productoId)
+        {
+            return await _farmaDbContext.InventarioProducto
+                .AnyAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
+        }
+
+        // MÉTODO PARA OBTENER CANTIDAD DE UN PRODUCTO EN INVENTARIO
+        public async Task<long> GetProductQuantityInInventoryAsync(int inventarioId, int productoId)
+        {
+            var inventarioProducto = await _farmaDbContext.InventarioProducto
+                .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
+
+            return inventarioProducto?.Cantidad ?? 0;
+        }
+
+        // MÉTODO PARA ACTUALIZAR MÚLTIPLES PRODUCTOS A LA VEZ
+        public async Task<bool> UpdateMultipleProductsAsync(int inventarioId, List<(int ProductoId, long Cantidad, long? StockMin, long? StockMax)> productos)
+        {
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
+
+                try
+                {
+                    foreach (var (productoId, cantidad, stockMin, stockMax) in productos)
+                    {
+                        // Reutilizar la lógica existente pero sin transacción anidada
+                        var existingProducto = await _farmaDbContext.InventarioProducto
+                            .FirstOrDefaultAsync(ip => ip.IdInventario == inventarioId && ip.IdProducto == productoId);
+
+                        if (existingProducto != null)
+                        {
+                            existingProducto.Cantidad = cantidad;
+                            if (stockMin.HasValue) existingProducto.StockMinimo = stockMin;
+                            if (stockMax.HasValue) existingProducto.StockMaximo = stockMax;
+                            _farmaDbContext.InventarioProducto.Update(existingProducto);
+                        }
+                        else
+                        {
+                            var maxId = await _farmaDbContext.InventarioProducto
+                                .MaxAsync(ip => (int?)ip.IdInventarioProducto) ?? 0;
+
+                            var nuevoInventarioProducto = new InventarioProducto
+                            {
+                                IdInventarioProducto = maxId + 1,
+                                IdInventario = inventarioId,
+                                IdProducto = productoId,
+                                Cantidad = cantidad,
+                                StockMinimo = stockMin,
+                                StockMaximo = stockMax
+                            };
+                            _farmaDbContext.InventarioProducto.Add(nuevoInventarioProducto);
+                        }
+                    }
+
+                    await UpdateInventoryTimestampAsync(inventarioId);
+                    await _farmaDbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en UpdateMultipleProductsAsync: {ex.Message}");
+                    return false;
+                }
+            });
+        }
+
+        // MÉTODO PARA OBTENER PRODUCTOS CON STOCK CRÍTICO
+        public async Task<List<InventarioProducto>> GetCriticalStockProductsAsync(int? inventarioId = null)
+        {
+            var query = _farmaDbContext.InventarioProducto
+                .Include(ip => ip.IdProductoNavigation)
+                    .ThenInclude(p => p.IdCategoriaNavigation)
+                .Include(ip => ip.IdInventarioNavigation)
+                .Where(ip => ip.StockMinimo.HasValue &&
+                           ip.Cantidad.HasValue &&
+                           ip.Cantidad <= (ip.StockMinimo * 0.5)); // Stock crítico: 50% del mínimo
+
+            if (inventarioId.HasValue)
+            {
+                query = query.Where(ip => ip.IdInventario == inventarioId.Value);
             }
+
+            return await query
+                .OrderBy(ip => ip.Cantidad)
+                .ToListAsync();
+        }
+
+        // MÉTODO PARA CLONAR INVENTARIO
+        public async Task<bool> CloneInventoryAsync(int sourceInventarioId, string newInventoryName)
+        {
+            var strategy = _farmaDbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _farmaDbContext.Database.BeginTransactionAsync();
+
+                try
+                {
+                    // Obtener inventario origen
+                    var sourceInventario = await GetByIdAsync(sourceInventarioId);
+
+                    // Crear nuevo inventario
+                    var newInventario = new Inventario
+                    {
+                        NombreInventario = newInventoryName,
+                        UltimaActualizacion = DateTime.Now
+                    };
+
+                    _farmaDbContext.Inventario.Add(newInventario);
+                    await _farmaDbContext.SaveChangesAsync();
+
+                    // Clonar productos del inventario origen
+                    if (sourceInventario.InventarioProducto?.Any() == true)
+                    {
+                        var maxId = await _farmaDbContext.InventarioProducto
+                            .MaxAsync(ip => (int?)ip.IdInventarioProducto) ?? 0;
+
+                        foreach (var producto in sourceInventario.InventarioProducto)
+                        {
+                            var newProducto = new InventarioProducto
+                            {
+                                IdInventarioProducto = ++maxId,
+                                IdInventario = newInventario.IdInventario,
+                                IdProducto = producto.IdProducto,
+                                Cantidad = 0, // Empezar con cantidad 0
+                                StockMinimo = producto.StockMinimo,
+                                StockMaximo = producto.StockMaximo
+                            };
+
+                            _farmaDbContext.InventarioProducto.Add(newProducto);
+                        }
+
+                        await _farmaDbContext.SaveChangesAsync();
+                    }
+
+                    await transaction.CommitAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"Error en CloneInventoryAsync: {ex.Message}");
+                    return false;
+                }
+            });
         }
     }
 }

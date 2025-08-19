@@ -5,7 +5,7 @@
 @using ProyectoFarmaVita.Services.SucursalServices
 @using ProyectoFarmaVita.Services.PersonaServices
 @using ProyectoFarmaVita.Services.MunicipioService
-@using ProyectoFarmaVita.Services.InventarioServices
+@using ProyectoFarmaVita.Services.InventarioService
 @using ProyectoFarmaVita.Services.DepartamentoServices
 @using ProyectoFarmaVita.Services.TelefonoServices
 @using ProyectoFarmaVita.Services.DireccionServices
@@ -88,7 +88,7 @@
                     {
                         @foreach (var inventario in inventarios)
                         {
-                            <MudSelectItem T="int?" Value="@inventario.IdInventario">@($"{inventario.NombreInventario} (Stock: {inventario.Cantidad})")</MudSelectItem>
+                            <MudSelectItem T="int?" Value="@inventario.IdInventario">@($"{inventario.NombreInventario}")</MudSelectItem>
                         }
                     }
                 </MudSelect>

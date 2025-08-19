@@ -1,35 +1,41 @@
 ﻿using ProyectoFarmaVita.Models;
 
-namespace ProyectoFarmaVita.Services.InventarioServices
+namespace ProyectoFarmaVita.Services.InventarioService
 {
     public interface IInventarioService
     {
-        // Métodos básicos CRUD
+        // OPERACIONES BÁSICAS DE INVENTARIO
         Task<bool> AddUpdateAsync(Inventario inventario);
         Task<bool> DeleteAsync(int id_inventario);
         Task<List<Inventario>> GetAllAsync();
         Task<Inventario> GetByIdAsync(int id_inventario);
         Task<MPaginatedResult<Inventario>> GetPaginatedAsync(int pageNumber, int pageSize, string searchTerm = "", bool sortAscending = true);
-
-        // Métodos para inventarios con stock bajo
         Task<List<Inventario>> GetLowStockAsync();
 
-        // Métodos para gestión de productos en inventario
+        // OPERACIONES DE PRODUCTOS EN INVENTARIO
         Task<bool> AddProductToInventoryAsync(int inventarioId, int productoId, long cantidad, long? stockMinimo = null, long? stockMaximo = null);
         Task<bool> RemoveProductFromInventoryAsync(int inventarioId, int productoId);
         Task<bool> UpdateProductQuantityAsync(int inventarioId, int productoId, long nuevaCantidad);
-
-        // Métodos de consulta de productos en inventario
         Task<List<InventarioProducto>> GetProductsByInventoryAsync(int inventarioId);
+
+        // CONSULTAS DE STOCK
         Task<List<InventarioProducto>> GetLowStockProductsAsync(int? inventarioId = null);
+        Task<List<InventarioProducto>> GetCriticalStockProductsAsync(int? inventarioId = null);
+        Task<bool> ProductExistsInInventoryAsync(int inventarioId, int productoId);
+        Task<long> GetProductQuantityInInventoryAsync(int inventarioId, int productoId);
 
-        // Métodos de estadísticas
+        // ESTADÍSTICAS Y REPORTES
         Task<Dictionary<string, object>> GetInventoryStatsAsync(int inventarioId);
+        Task<List<dynamic>> GetInventorySummaryAsync();
 
-        // Métodos de búsqueda
+        // BÚSQUEDA Y FILTRADO
         Task<List<Producto>> SearchAvailableProductsAsync(string searchTerm);
 
-        // Métodos de transferencia
+        // OPERACIONES AVANZADAS
         Task<bool> TransferProductBetweenInventoriesAsync(int fromInventoryId, int toInventoryId, int productoId, long cantidad);
+        Task<bool> CreateInventoryWithProductsAsync(Inventario inventario, List<InventarioProducto> productos);
+        Task<bool> ClearInventoryProductsAsync(int inventarioId);
+        Task<bool> UpdateMultipleProductsAsync(int inventarioId, List<(int ProductoId, long Cantidad, long? StockMin, long? StockMax)> productos);
+        Task<bool> CloneInventoryAsync(int sourceInventarioId, string newInventoryName);
     }
 }
