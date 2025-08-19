@@ -1,4 +1,162 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using ProyectoFarmaVita.Services.AuthServices
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<MudNavMenu>
+    <!-- Dashboard -->
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    <MudDivider Class="my-2" />
+
+    <!-- Gestión de Personal - Solo Admin y Gerente -->
+    <AuthorizeView Policy="@AuthorizationPolicies.PersonasAccess">
+        <MudNavGroup Text="Gestión Personal" Icon="@Icons.Material.Filled.People" Expanded="false">
+            <MudNavLink Href="/personas" Icon="@Icons.Material.Filled.Person">
+                Personas
+            </MudNavLink>
+            <AuthorizeView Roles="Administrador">
+                <MudNavLink Href="/asignacion-turno" Icon="@Icons.Material.Filled.Schedule">
+                    Turnos de Trabajo
+                </MudNavLink>
+            </AuthorizeView>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <!-- Gestión de Productos - Admin, Gerente, Farmaceuta -->
+    <AuthorizeView Policy="@AuthorizationPolicies.ProductosAccess">
+        <MudNavGroup Text="Productos" Icon="@Icons.Material.Filled.Medication" Expanded="false">
+            <MudNavLink Href="/producto" Icon="@Icons.Material.Filled.LocalPharmacy">
+                Productos
+            </MudNavLink>
+            <MudNavLink Href="/categoria" Icon="@Icons.Material.Filled.Category">
+                Categorías
+            </MudNavLink>
+            <MudNavLink Href="/proveedor" Icon="@Icons.Material.Filled.LocalShipping">
+                Proveedores
+            </MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <!-- Inventarios - Admin, Gerente, Farmaceuta -->
+    <AuthorizeView Policy="@AuthorizationPolicies.InventariosAccess">
+        <MudNavLink Href="/inventario" Icon="@Icons.Material.Filled.Inventory">
+            Inventarios
+        </MudNavLink>
+    </AuthorizeView>
+
+    <!-- Ventas - Todos los roles -->
+    <AuthorizeView Policy="@AuthorizationPolicies.VentasAccess">
+        <MudNavGroup Text="Ventas" Icon="@Icons.Material.Filled.PointOfSale" Expanded="false">
+            <MudNavLink Href="/ventas" Icon="@Icons.Material.Filled.ShoppingCart">
+                Punto de Venta
+            </MudNavLink>
+            <MudNavLink Href="/facturas" Icon="@Icons.Material.Filled.Receipt">
+                Facturas
+            </MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <!-- Administración - Solo Admin y Gerente -->
+    <AuthorizeView Roles="Administrador,Gerente">
+        <MudDivider Class="my-2" />
+        <MudNavGroup Text="Administración" Icon="@Icons.Material.Filled.Business" Expanded="false">
+            <MudNavLink Href="/sucursal" Icon="@Icons.Material.Filled.Store">
+                Sucursales
+            </MudNavLink>
+            
+            <AuthorizeView Roles="Administrador">
+                <MudNavLink Href="/turnotrabajo" Icon="@Icons.Material.Filled.AccessTime">
+                    Turnos de Trabajo
+                </MudNavLink>
+            </AuthorizeView>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <!-- Reportes - Solo Admin y Gerente -->
+    <AuthorizeView Policy="@AuthorizationPolicies.ReportesAccess">
+        <MudNavGroup Text="Reportes" Icon="@Icons.Material.Filled.Assessment" Expanded="false">
+            <MudNavLink Href="/reportes/ventas" Icon="@Icons.Material.Filled.TrendingUp">
+                Ventas
+            </MudNavLink>
+            <MudNavLink Href="/reportes/inventario" Icon="@Icons.Material.Filled.Analytics">
+                Inventario
+            </MudNavLink>
+            <MudNavLink Href="/reportes/personal" Icon="@Icons.Material.Filled.Group">
+                Personal
+            </MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <!-- Configuración - Solo Administrador -->
+    <AuthorizeView Policy="@AuthorizationPolicies.ConfiguracionAccess">
+        <MudDivider Class="my-2" />
+        <MudNavGroup Text="Configuración" Icon="@Icons.Material.Filled.Settings" Expanded="false">
+            <MudNavLink Href="/departamento" Icon="@Icons.Material.Filled.Map">
+                Departamentos
+            </MudNavLink>
+            <MudNavLink Href="/municipio" Icon="@Icons.Material.Filled.LocationCity">
+                Municipios
+            </MudNavLink>
+            <MudNavLink Href="/genero" Icon="@Icons.Material.Filled.Wc">
+                Géneros
+            </MudNavLink>
+            <MudNavLink Href="/estadocivil" Icon="@Icons.Material.Filled.Favorite">
+                Estado Civil
+            </MudNavLink>
+            <MudNavLink Href="/roles" Icon="@Icons.Material.Filled.Security">
+                Roles
+            </MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <!-- Acceso rápido según el rol -->
+    <MudDivider Class="my-2" />
+    
+    <AuthorizeView Roles="Vendedor">
+        <MudText Typo="Typo.caption" Class="px-4 py-2" Style="color: var(--mud-palette-text-secondary);">
+            Acceso Rápido
+        </MudText>
+        <MudNavLink Href="/ventas" Icon="@Icons.Material.Filled.ShoppingCart">
+            Nueva Venta
+        </MudNavLink>
+        <MudNavLink Href="/productos" Icon="@Icons.Material.Filled.Search">
+            Buscar Producto
+        </MudNavLink>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Farmaceuta">
+        <MudText Typo="Typo.caption" Class="px-4 py-2" Style="color: var(--mud-palette-text-secondary);">
+            Acceso Rápido
+        </MudText>
+        <MudNavLink Href="/inventario" Icon="@Icons.Material.Filled.Inventory2">
+            Control Stock
+        </MudNavLink>
+        <MudNavLink Href="/producto/agregar" Icon="@Icons.Material.Filled.Add">
+            Nuevo Producto
+        </MudNavLink>
+    </AuthorizeView>
+</MudNavMenu>
+
+@code {
+    // Importar las políticas de autorización
+    private static class AuthorizationPolicies
+    {
+        public const string PersonasAccess = "PersonasAccess";
+        public const string ProductosAccess = "ProductosAccess";
+        public const string InventariosAccess = "InventariosAccess";
+        public const string VentasAccess = "VentasAccess";
+        public const string ReportesAccess = "ReportesAccess";
+        public const string ConfiguracionAccess = "ConfiguracionAccess";
+    }
+}
+
+
+
+
+@* <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">ProyectoFarmaVita</a>
     </div>
@@ -253,4 +411,4 @@
             });
         }
     });
-</script>
+</script> *@

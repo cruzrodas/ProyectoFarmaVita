@@ -55,6 +55,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Dashboards/AdminDashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xEYXNoYm9hcmRzXEFkbWluRGFzaGJvYXJkLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Departamento/AgregarEditarDepartamento.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xEZXBhcnRhbWVudG9cQWdyZWdhckVkaXRhckRlcGFydGFtZW50by5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -93,6 +97,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Inventario/ListaInventario.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJbnZlbnRhcmlvXExpc3RhSW52ZW50YXJpby5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMb2dpbi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/Municipio/AgregarEditarMunicipio.razor]

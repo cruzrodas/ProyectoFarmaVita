@@ -1,0 +1,187 @@
+﻿@page "/dashboard/admin"
+@using ProyectoFarmaVita.Services.AuthServices
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Administrador")]
+
+<PageTitle>Dashboard - Administrador</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
+    <MudGrid Spacing="3">
+        <!-- Header -->
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudGrid AlignItems="AlignItems.Center">
+                    <MudItem xs="12" md="8">
+                        <MudText Typo="Typo.h4" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Class="mr-3" />
+                            Panel de Administración
+                        </MudText>
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">
+                            Bienvenido al sistema completo de gestión
+                        </MudText>
+                    </MudItem>
+                    <MudItem xs="12" md="4" Class="text-right">
+                        <MudText Typo="Typo.subtitle1">
+                            @DateTime.Now.ToString("dddd, dd MMMM yyyy")
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Gestión de Personal -->
+        <MudItem xs="12" md="6" lg="4">
+            <MudCard Elevation="3" Class="dashboard-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+                            Gestión de Personal
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Administrar empleados, roles y permisos</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/personas"))">
+                        Ver Personas
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/asignacion-turno"))">
+                        Turnos
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        <!-- Gestión de Productos -->
+        <MudItem xs="12" md="6" lg="4">
+            <MudCard Elevation="3" Class="dashboard-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.Medication" Class="mr-2" />
+                            Gestión de Productos
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Productos, categorías e inventarios</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/producto"))">
+                        Productos
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/categoria"))">
+                        Categorías
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        <!-- Gestión de Inventarios -->
+        <MudItem xs="12" md="6" lg="4">
+            <MudCard Elevation="3" Class="dashboard-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.Inventory" Class="mr-2" />
+                            Inventarios
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Control de stock y existencias</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/inventario"))">
+                        Ver Inventarios
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        <!-- Gestión de Sucursales -->
+        <MudItem xs="12" md="6" lg="4">
+            <MudCard Elevation="3" Class="dashboard-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.Business" Class="mr-2" />
+                            Sucursales
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Administrar ubicaciones y responsables</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/sucursal"))">
+                        Ver Sucursales
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        <!-- Gestión de Proveedores -->
+        <MudItem xs="12" md="6" lg="4">
+            <MudCard Elevation="3" Class="dashboard-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Class="mr-2" />
+                            Proveedores
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Gestionar proveedores y contactos</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/proveedor"))">
+                        Ver Proveedores
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        <!-- Configuración del Sistema -->
+        <MudItem xs="12" md="6" lg="4">
+            <MudCard Elevation="3" Class="dashboard-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" />
+                            Configuración
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Configuraciones generales del sistema</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/departamento"))">
+                        Departamentos
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/municipio"))">
+                        Municipios
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .dashboard-card {
+        transition: transform 0.2s ease-in-out;
+        cursor: pointer;
+    }
+
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+</style>
