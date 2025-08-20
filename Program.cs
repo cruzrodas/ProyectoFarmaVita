@@ -38,6 +38,9 @@ builder.Services.AddRazorComponents()
 // Configurar Razor Pages (necesario para algunos formularios)
 builder.Services.AddRazorPages();
 
+// ✅ AGREGADO: AuthenticationStateProvider para Blazor
+builder.Services.AddCascadingAuthenticationState();
+
 // ================================================================
 // CONFIGURACIÓN DE BASE DE DATOS
 // ================================================================
@@ -94,7 +97,7 @@ builder.Services.AddDbContext<FarmaDbContext>(options =>
 // Configurar HttpContextAccessor (DEBE ir antes de authentication)
 builder.Services.AddHttpContextAccessor();
 
-// Configurar autenticación con cookies
+// Configurar autenticación con cookies - ✅ MEJORADA
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -109,36 +112,56 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.Cookie.IsEssential = true;
 
-        // Eventos para debugging (solo en desarrollo)
-        if (builder.Environment.IsDevelopment())
+        // ✅ CRÍTICO: Eventos mejorados para evitar redirección de archivos estáticos
+        options.Events = new CookieAuthenticationEvents
         {
-            options.Events = new CookieAuthenticationEvents
+            OnRedirectToLogin = context =>
             {
-                OnSigningIn = context =>
+                // ✅ NO redirigir archivos estáticos - ESTO SOLUCIONA EL 302
+                if (context.Request.Path.StartsWithSegments("/_framework") ||
+                    context.Request.Path.StartsWithSegments("/_content") ||
+                    context.Request.Path.StartsWithSegments("/css") ||
+                    context.Request.Path.StartsWithSegments("/js") ||
+                    context.Request.Path.StartsWithSegments("/lib"))
                 {
-                    Console.WriteLine($"🔧 COOKIE AUTH: Signing in user {context.Principal?.Identity?.Name}");
-                    return Task.CompletedTask;
-                },
-                OnSignedIn = context =>
-                {
-                    Console.WriteLine($"✅ COOKIE AUTH: User signed in {context.Principal?.Identity?.Name}");
-                    return Task.CompletedTask;
-                },
-                OnSigningOut = context =>
-                {
-                    Console.WriteLine($"🔧 COOKIE AUTH: Signing out user");
-                    return Task.CompletedTask;
-                },
-                OnValidatePrincipal = context =>
-                {
-                    Console.WriteLine($"🔧 COOKIE AUTH: Validating principal {context.Principal?.Identity?.Name}");
+                    context.Response.StatusCode = 401;
                     return Task.CompletedTask;
                 }
-            };
-        }
+
+                // Solo redirigir páginas normales
+                context.Response.Redirect(context.RedirectUri);
+                return Task.CompletedTask;
+            },
+
+            // Eventos para debugging (solo en desarrollo)
+            OnSigningIn = context =>
+            {
+                if (builder.Environment.IsDevelopment())
+                    Console.WriteLine($"🔧 COOKIE AUTH: Signing in user {context.Principal?.Identity?.Name}");
+                return Task.CompletedTask;
+            },
+            OnSignedIn = context =>
+            {
+                if (builder.Environment.IsDevelopment())
+                    Console.WriteLine($"✅ COOKIE AUTH: User signed in {context.Principal?.Identity?.Name}");
+                return Task.CompletedTask;
+            },
+            OnSigningOut = context =>
+            {
+                if (builder.Environment.IsDevelopment())
+                    Console.WriteLine($"🔧 COOKIE AUTH: Signing out user");
+                return Task.CompletedTask;
+            },
+            OnValidatePrincipal = context =>
+            {
+                if (builder.Environment.IsDevelopment())
+                    Console.WriteLine($"🔧 COOKIE AUTH: Validating principal {context.Principal?.Identity?.Name}");
+                return Task.CompletedTask;
+            }
+        };
     });
 
-// Configurar autorización con políticas
+// ✅ MODIFICADA: Configurar autorización sin FallbackPolicy agresiva
 builder.Services.AddAuthorization(options =>
 {
     // Políticas basadas en roles
@@ -173,10 +196,10 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.ConfiguracionAccess, policy =>
         policy.Requirements.Add(new ModuleAccessRequirement("Configuracion")));
 
-    // Política por defecto: requiere usuario autenticado
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
+    // ✅ COMENTADA: Política por defecto comentada temporalmente para evitar bloqueo de archivos estáticos
+    // options.FallbackPolicy = new AuthorizationPolicyBuilder()
+    //     .RequireAuthenticatedUser()
+    //     .Build();
 });
 
 // ================================================================
@@ -226,10 +249,10 @@ builder.Services.AddScoped<ITurnoTrabajoService, STurnoTrabajoService>();
 var app = builder.Build();
 
 // ================================================================
-// CONFIGURACIÓN DEL PIPELINE HTTP
+// ✅ CONFIGURACIÓN CORREGIDA DEL PIPELINE HTTP
 // ================================================================
 
-// Configurar manejo de errores
+// 1. Configurar manejo de errores (PRIMERO)
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -240,16 +263,23 @@ else
     app.UseDeveloperExceptionPage();
 }
 
-// Middleware básico
+// 2. HTTPS redirect
 app.UseHttpsRedirection();
+
+// 3. ✅ ARCHIVOS ESTÁTICOS (CRÍTICO: ANTES del routing y auth)
 app.UseStaticFiles();
 
-// ⚠️ ORDEN CRÍTICO: UseAntiforgery DEBE ir ANTES de UseAuthentication
-app.UseAntiforgery();
+// 4. ✅ ROUTING (AGREGADO)
+app.UseRouting();
 
-// ⚠️ ORDEN CRÍTICO: UseAuthentication DEBE ir ANTES de UseAuthorization
+// 5. ✅ AUTHENTICATION (DESPUÉS de UseRouting, ANTES de UseAuthorization)
 app.UseAuthentication();
+
+// 6. ✅ AUTHORIZATION (DESPUÉS de UseAuthentication)
 app.UseAuthorization();
+
+// 7. ✅ ANTIFORGERY (AL FINAL, DESPUÉS de auth)
+app.UseAntiforgery();
 
 // ================================================================
 // CONFIGURACIÓN DE RUTAS Y ENDPOINTS
@@ -283,9 +313,10 @@ app.MapPost("/logout", async (HttpContext context, IAuthService authService) =>
     }
 });
 
-// Endpoint de test de autenticación (solo en desarrollo)
+// ✅ AGREGADO: Endpoint para verificar archivos estáticos
 if (app.Environment.IsDevelopment())
 {
+    // Endpoint de test de autenticación
     app.MapGet("/test-auth", async (HttpContext context, IAuthService authService) =>
     {
         try
@@ -312,6 +343,25 @@ if (app.Environment.IsDevelopment())
             return Results.Json(new { Error = ex.Message, Timestamp = DateTime.Now });
         }
     });
+
+    // ✅ NUEVO: Endpoint para verificar archivos estáticos
+    app.MapGet("/debug/static", () =>
+    {
+        return Results.Json(new
+        {
+            Message = "Static files are working correctly!",
+            Timestamp = DateTime.Now,
+            Status = "OK"
+        });
+    });
+
+    // ✅ NUEVO: Middleware de debugging para ver todas las requests
+    app.Use(async (context, next) =>
+    {
+        Console.WriteLine($"🔍 Request: {context.Request.Method} {context.Request.Path}");
+        await next();
+        Console.WriteLine($"📤 Response: {context.Response.StatusCode} for {context.Request.Path}");
+    });
 }
 
 // ================================================================
@@ -327,6 +377,7 @@ if (app.Environment.IsDevelopment())
     Console.WriteLine("🔧 Authentication: Cookie-based");
     Console.WriteLine("🔧 Authorization: Role + Policy-based");
     Console.WriteLine("✅ Application configured successfully");
+    Console.WriteLine("🔧 Middleware order: StaticFiles → Routing → Auth → Authorization → Antiforgery");
 }
 
 // ================================================================

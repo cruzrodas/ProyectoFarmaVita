@@ -10,12 +10,14 @@ namespace ProyectoFarmaVita.Services.AuthServices
     {
         private readonly FarmaDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<AuthService> _logger;
         private Persona? _currentUser;
 
-        public AuthService(FarmaDbContext context, IHttpContextAccessor httpContextAccessor)
+        public AuthService(FarmaDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<AuthService> logger)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
@@ -25,100 +27,145 @@ namespace ProyectoFarmaVita.Services.AuthServices
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+                _logger.LogInformation("🔧 AUTH SERVICE: Iniciando login para {Email}", email);
+
+                // ✅ Verificaciones defensivas
+                if (string.IsNullOrWhiteSpace(email))
                 {
-                    return new AuthResult
-                    {
-                        Success = false,
-                        Message = "Email y contraseña son requeridos"
-                    };
+                    _logger.LogWarning("❌ AUTH: Email vacío");
+                    return new AuthResult { Success = false, Message = "Email es requerido" };
                 }
 
-                // Buscar usuario por email
+                if (string.IsNullOrWhiteSpace(password))
+                {
+                    _logger.LogWarning("❌ AUTH: Password vacío");
+                    return new AuthResult { Success = false, Message = "Contraseña es requerida" };
+                }
+
+                // ✅ Verificar DbContext
+                if (_context == null)
+                {
+                    _logger.LogError("❌ AUTH: DbContext es null");
+                    return new AuthResult { Success = false, Message = "Error de configuración de base de datos" };
+                }
+
+                _logger.LogInformation("🔧 AUTH: Buscando usuario en base de datos...");
+
+                // ✅ CORREGIDO: Usar el nombre correcto de la tabla y campos
                 var user = await _context.Persona
                     .Include(p => p.IdRoolNavigation)
                     .Include(p => p.IdGeneroNavigation)
                     .Include(p => p.IdEstadoCivilNavigation)
-                    .FirstOrDefaultAsync(p => p.Email == email && p.Activo == true);
+                    .FirstOrDefaultAsync(p => p.Email == email.Trim().ToLower() && p.Activo == true);
 
-                if (user is null)
+                if (user == null)
                 {
-                    return new AuthResult
-                    {
-                        Success = false,
-                        Message = "Usuario no encontrado o inactivo"
-                    };
+                    _logger.LogWarning("❌ AUTH: Usuario no encontrado para email {Email}", email);
+                    return new AuthResult { Success = false, Message = "Usuario no encontrado o inactivo" };
                 }
 
-                // Verificar contraseña
+                _logger.LogInformation("✅ AUTH: Usuario encontrado - {Nombre} {Apellido}",
+                    user.Nombre, user.Apellido);
+
+                // ✅ CORREGIDO: Verificar contraseña con el campo correcto
                 if (!VerifyPassword(password, user.Contraseña))
                 {
-                    return new AuthResult
-                    {
-                        Success = false,
-                        Message = "Contraseña incorrecta"
-                    };
+                    _logger.LogWarning("❌ AUTH: Contraseña incorrecta para {Email}", email);
+                    return new AuthResult { Success = false, Message = "Contraseña incorrecta" };
                 }
 
-                // Crear claims
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.IdPersona.ToString()),
-                    new Claim(ClaimTypes.Name, GetFullName(user)),
-                    new Claim(ClaimTypes.Email, user.Email ?? ""),
-                    new Claim("UserId", user.IdPersona.ToString()),
-                    new Claim("FullName", GetFullName(user)),
-                };
+                _logger.LogInformation("✅ AUTH: Contraseña verificada correctamente");
 
-                // Agregar rol si existe
-                if (user.IdRoolNavigation?.TipoRol is not null)
-                {
-                    claims.Add(new Claim(ClaimTypes.Role, user.IdRoolNavigation.TipoRol));
-                    claims.Add(new Claim("RoleId", user.IdRoolNavigation.IdRol.ToString()));
-                }
+                // ✅ Crear claims de forma segura
+                var claims = new List<Claim>();
 
-                // Agregar sucursal si existe
-                if (user.IdSucursal.HasValue)
+                try
                 {
-                    claims.Add(new Claim("SucursalId", user.IdSucursal.Value.ToString()));
+                    claims.Add(new Claim(ClaimTypes.NameIdentifier, user.IdPersona.ToString()));
+                    claims.Add(new Claim(ClaimTypes.Name, GetFullName(user)));
+                    claims.Add(new Claim(ClaimTypes.Email, user.Email ?? ""));
+                    claims.Add(new Claim("UserId", user.IdPersona.ToString()));
+                    claims.Add(new Claim("FullName", GetFullName(user)));
 
-                    // Buscar el nombre de la sucursal por separado
-                    var sucursal = await _context.Sucursal.FindAsync(user.IdSucursal.Value);
-                    if (sucursal?.NombreSucursal is not null)
+                    // Agregar rol si existe
+                    if (user.IdRoolNavigation?.TipoRol is not null)
                     {
-                        claims.Add(new Claim("SucursalName", sucursal.NombreSucursal));
+                        claims.Add(new Claim(ClaimTypes.Role, user.IdRoolNavigation.TipoRol));
+                        claims.Add(new Claim("RoleId", user.IdRoolNavigation.IdRol.ToString()));
+                        _logger.LogInformation("✅ AUTH: Rol asignado - {Rol}", user.IdRoolNavigation.TipoRol);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("⚠️ AUTH: Usuario sin rol asignado");
+                    }
+
+                    // Agregar sucursal si existe
+                    if (user.IdSucursal.HasValue)
+                    {
+                        claims.Add(new Claim("SucursalId", user.IdSucursal.Value.ToString()));
+
+                        // Buscar el nombre de la sucursal
+                        var sucursal = await _context.Sucursal.FindAsync(user.IdSucursal.Value);
+                        if (sucursal?.NombreSucursal is not null)
+                        {
+                            claims.Add(new Claim("SucursalName", sucursal.NombreSucursal));
+                        }
                     }
                 }
-
-                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-                var authProperties = new AuthenticationProperties
+                catch (Exception claimsEx)
                 {
-                    AllowRefresh = true,
-                    ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
-                    IsPersistent = true
-                };
-
-                // Verificar que HttpContext no sea null
-                var httpContext = _httpContextAccessor.HttpContext;
-                if (httpContext is null)
-                {
-                    return new AuthResult
-                    {
-                        Success = false,
-                        Message = "Error interno: HttpContext no disponible"
-                    };
+                    _logger.LogError(claimsEx, "❌ AUTH: Error creando claims");
+                    return new AuthResult { Success = false, Message = "Error procesando datos del usuario" };
                 }
 
-                // Autenticar usuario
-                await httpContext.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(claimsIdentity),
-                    authProperties);
+                // ✅ Crear identidad y principal de forma segura
+                try
+                {
+                    var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                    var authProperties = new AuthenticationProperties
+                    {
+                        AllowRefresh = true,
+                        ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+                        IsPersistent = true
+                    };
+
+                    // Verificar que HttpContext no sea null
+                    var httpContext = _httpContextAccessor.HttpContext;
+                    if (httpContext is null)
+                    {
+                        _logger.LogError("❌ AUTH: HttpContext es null");
+                        return new AuthResult { Success = false, Message = "Error interno: HttpContext no disponible" };
+                    }
+
+                    _logger.LogInformation("🔧 AUTH: Realizando sign in...");
+
+                    // Autenticar usuario
+                    await httpContext.SignInAsync(
+                        CookieAuthenticationDefaults.AuthenticationScheme,
+                        new ClaimsPrincipal(claimsIdentity),
+                        authProperties);
+
+                    _logger.LogInformation("✅ AUTH: Sign in completado exitosamente");
+                }
+                catch (Exception signInEx)
+                {
+                    _logger.LogError(signInEx, "❌ AUTH: Error en SignInAsync");
+                    return new AuthResult { Success = false, Message = "Error completando la autenticación" };
+                }
 
                 _currentUser = user;
 
-                // Registrar en bitácora
-                await RegistrarAcceso(user, "Login", "Inicio de sesión exitoso");
+                // ✅ Registrar en bitácora de forma segura
+                try
+                {
+                    await RegistrarAcceso(user, "Login", "Inicio de sesión exitoso");
+                    _logger.LogInformation("✅ AUTH: Bitácora registrada");
+                }
+                catch (Exception bitacoraEx)
+                {
+                    _logger.LogWarning(bitacoraEx, "⚠️ AUTH: Error registrando bitácora (no crítico)");
+                    // No fallar el login por esto
+                }
 
                 return new AuthResult
                 {
@@ -129,11 +176,11 @@ namespace ProyectoFarmaVita.Services.AuthServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error en login: {ex.Message}");
+                _logger.LogError(ex, "💥 AUTH: Error inesperado en LoginAsync");
                 return new AuthResult
                 {
                     Success = false,
-                    Message = "Error interno del servidor"
+                    Message = $"Error del sistema: {ex.Message}"
                 };
             }
         }
@@ -142,12 +189,15 @@ namespace ProyectoFarmaVita.Services.AuthServices
         {
             try
             {
+                _logger.LogInformation("🔧 AUTH: Iniciando logout");
+
                 var user = await GetCurrentUserAsync();
 
                 var httpContext = _httpContextAccessor.HttpContext;
                 if (httpContext is not null)
                 {
                     await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                    _logger.LogInformation("✅ AUTH: SignOut completado");
                 }
 
                 _currentUser = null;
@@ -155,14 +205,21 @@ namespace ProyectoFarmaVita.Services.AuthServices
                 // Registrar en bitácora
                 if (user is not null)
                 {
-                    await RegistrarAcceso(user, "Logout", "Cierre de sesión");
+                    try
+                    {
+                        await RegistrarAcceso(user, "Logout", "Cierre de sesión");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "⚠️ AUTH: Error registrando logout en bitácora");
+                    }
                 }
 
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error en logout: {ex.Message}");
+                _logger.LogError(ex, "❌ AUTH: Error en logout");
                 return false;
             }
         }
@@ -192,7 +249,7 @@ namespace ProyectoFarmaVita.Services.AuthServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al obtener usuario actual: {ex.Message}");
+                _logger.LogError(ex, "❌ AUTH: Error al obtener usuario actual");
                 return null;
             }
         }
@@ -217,15 +274,28 @@ namespace ProyectoFarmaVita.Services.AuthServices
             return roles;
         }
 
-        // Métodos auxiliares privados
-        private static bool VerifyPassword(string password, string? hashedPassword)
+        // ✅ Métodos auxiliares privados mejorados
+        private bool VerifyPassword(string password, string? hashedPassword)
         {
-            if (string.IsNullOrEmpty(hashedPassword))
-                return false;
+            try
+            {
+                if (string.IsNullOrEmpty(hashedPassword))
+                {
+                    _logger.LogWarning("⚠️ AUTH: Hash de contraseña vacío");
+                    return false;
+                }
 
-            // Por simplicidad, comparamos directamente
-            // En producción deberías usar BCrypt o similar
-            return password == hashedPassword;
+                // Por simplicidad, comparamos directamente
+                // En producción deberías usar BCrypt o similar
+                bool isValid = password == hashedPassword;
+                _logger.LogDebug("🔧 AUTH: Verificación de contraseña: {IsValid}", isValid);
+                return isValid;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ AUTH: Error verificando contraseña");
+                return false;
+            }
         }
 
         private static string GetFullName(Persona user)
@@ -253,7 +323,8 @@ namespace ProyectoFarmaVita.Services.AuthServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al registrar en bitácora: {ex.Message}");
+                _logger.LogError(ex, "❌ AUTH: Error al registrar en bitácora");
+                throw; // Re-lanzar para que el llamador pueda manejar
             }
         }
     }

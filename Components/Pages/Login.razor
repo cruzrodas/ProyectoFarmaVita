@@ -8,6 +8,7 @@
 @inject IAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject ILogger<Login> Logger
 @attribute [AllowAnonymous]
 
 <PageTitle>FarmaVita - Iniciar Sesión</PageTitle>
@@ -75,7 +76,20 @@
                 </MudAlert>
             }
 
-            <!-- Botón Submit - CORREGIDO -->
+            <!-- ✅ INFORMACIÓN DE DEBUG -->
+            @if (showDebugInfo)
+            {
+                <MudPaper Class="pa-2 my-2" Elevation="1">
+                    <MudText Typo="Typo.caption">
+                        <strong>Debug Info:</strong><br />
+                        AuthService: @(AuthService != null ? "✅ OK" : "❌ NULL")<br />
+                        IsAuthenticated: @(AuthService?.IsAuthenticated ?? false)<br />
+                        Last Error: @lastDebugError
+                    </MudText>
+                </MudPaper>
+            }
+
+            <!-- Botón Submit -->
             <MudButton OnClick="@HandleLogin"
                        Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -96,18 +110,23 @@
                 }
             </MudButton>
 
-            <!-- Botón de DEBUG (temporal) -->
-            @if (showDebugButton)
-            {
-                <MudButton OnClick="@TestButton"
+            <!-- Botones de DEBUG -->
+            <div class="mt-2">
+                <MudButton OnClick="@TestConnection"
+                           Variant="Variant.Text"
+                           Color="Color.Info"
+                           Size="Size.Small"
+                           Class="mr-2">
+                    🔧 Test Connection
+                </MudButton>
+
+                <MudButton OnClick="@ToggleDebugInfo"
                            Variant="Variant.Text"
                            Color="Color.Secondary"
-                           FullWidth="true"
-                           Size="Size.Small"
-                           Class="mt-2">
-                    🔧 Test Button (Debug)
+                           Size="Size.Small">
+                    @(showDebugInfo ? "Hide" : "Show") Debug
                 </MudButton>
-            }
+            </div>
         </div>
 
         <!-- Enlaces -->
@@ -146,58 +165,92 @@
     private string emailError = string.Empty;
     private string passwordError = string.Empty;
 
-    // DEBUG: Variable para mostrar botón de prueba
-    private bool showDebugButton = true;
+    // ✅ DEBUG variables
+    private bool showDebugInfo = false;
+    private string lastDebugError = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            Console.WriteLine("🔧 LOGIN: Inicializando página de login...");
+            Logger.LogInformation("🔧 LOGIN: Inicializando página de login...");
 
-            // Verificar si AuthService está disponible
+            // ✅ Verificación detallada de servicios
             if (AuthService == null)
             {
-                Console.WriteLine("❌ LOGIN: AuthService es null!");
+                var error = "AuthService es null!";
+                Logger.LogError("❌ LOGIN: {Error}", error);
+                lastDebugError = error;
                 return;
             }
 
-            // Si ya está autenticado, redirigir al dashboard
-            if (AuthService.IsAuthenticated)
+            Logger.LogInformation("✅ LOGIN: AuthService disponible");
+
+            // Verificar si ya está autenticado
+            try
             {
-                Console.WriteLine("✅ LOGIN: Usuario ya autenticado, redirigiendo...");
-                NavigationManager.NavigateTo("/", replace: true);
-                return;
+                if (AuthService.IsAuthenticated)
+                {
+                    Logger.LogInformation("✅ LOGIN: Usuario ya autenticado, redirigiendo...");
+                    NavigationManager.NavigateTo("/", replace: true);
+                    return;
+                }
+            }
+            catch (Exception authEx)
+            {
+                Logger.LogWarning("⚠️ LOGIN: Error verificando autenticación: {Error}", authEx.Message);
+                lastDebugError = $"Auth check error: {authEx.Message}";
             }
 
-            Console.WriteLine("✅ LOGIN: Página de login inicializada correctamente");
+            Logger.LogInformation("✅ LOGIN: Página inicializada correctamente");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"💥 LOGIN ERROR en OnInitializedAsync: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            var error = $"Error en OnInitializedAsync: {ex.Message}";
+            Logger.LogError(ex, "💥 LOGIN ERROR: {Error}", error);
+            lastDebugError = error;
+            hasErrors = true;
+            errorMessage = "Error inicializando la página de login";
         }
     }
 
-    // MÉTODO DE DEBUG para probar que los clicks funcionan
-    private async Task TestButton()
+    // ✅ MÉTODO DE TEST DE CONEXIÓN
+    private async Task TestConnection()
     {
-        Console.WriteLine("🔧 TEST BUTTON: Botón de prueba clickeado!");
-        Snackbar.Add("¡Botón de prueba funcionando!", Severity.Info);
-
-        // Test básico de validación
-        email = "test@test.com";
-        password = "123456";
-
-        if (ValidateForm())
+        try
         {
-            Snackbar.Add("✅ Validación OK", Severity.Success);
-        }
-        else
-        {
-            Snackbar.Add("❌ Validación falló", Severity.Error);
-        }
+            Logger.LogInformation("🔧 TEST CONNECTION: Iniciando...");
+            lastDebugError = "Testing...";
 
+            if (AuthService == null)
+            {
+                lastDebugError = "AuthService is NULL!";
+                Snackbar.Add("❌ AuthService no disponible", Severity.Error);
+                return;
+            }
+
+            // Test básico del servicio
+            var isAuth = AuthService.IsAuthenticated;
+            lastDebugError = $"IsAuthenticated: {isAuth}";
+
+            Snackbar.Add("✅ AuthService conectado correctamente", Severity.Success);
+            Logger.LogInformation("✅ TEST CONNECTION: OK");
+        }
+        catch (Exception ex)
+        {
+            lastDebugError = $"Connection test failed: {ex.Message}";
+            Logger.LogError(ex, "❌ TEST CONNECTION failed: {Error}", ex.Message);
+            Snackbar.Add($"❌ Error de conexión: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleDebugInfo()
+    {
+        showDebugInfo = !showDebugInfo;
         StateHasChanged();
     }
 
@@ -207,20 +260,19 @@
         passwordError = string.Empty;
         bool isValid = true;
 
-        Console.WriteLine($"🔧 VALIDACIÓN - Email: '{email}', Password: '{password}'");
+        Logger.LogDebug("🔧 VALIDACIÓN - Email: '{Email}', Password length: {Length}",
+            email, password?.Length ?? 0);
 
         // Validar email
         if (string.IsNullOrWhiteSpace(email))
         {
             emailError = "El email es requerido";
             isValid = false;
-            Console.WriteLine("❌ Email vacío");
         }
         else if (!IsValidEmail(email))
         {
             emailError = "Formato de email inválido";
             isValid = false;
-            Console.WriteLine("❌ Email inválido");
         }
 
         // Validar password
@@ -228,16 +280,14 @@
         {
             passwordError = "La contraseña es requerida";
             isValid = false;
-            Console.WriteLine("❌ Password vacío");
         }
         else if (password.Length < 3)
         {
             passwordError = "La contraseña debe tener al menos 3 caracteres";
             isValid = false;
-            Console.WriteLine("❌ Password muy corto");
         }
 
-        Console.WriteLine($"🔧 VALIDACIÓN resultado: {isValid}");
+        Logger.LogDebug("🔧 VALIDACIÓN resultado: {IsValid}", isValid);
         return isValid;
     }
 
@@ -256,49 +306,54 @@
 
     private async Task HandleLogin()
     {
-        Console.WriteLine("🔧 HANDLE LOGIN: Método iniciado");
+        Logger.LogInformation("🔧 HANDLE LOGIN: Método iniciado");
 
         if (isLoading)
         {
-            Console.WriteLine("⚠️ Ya está cargando, ignorando click");
+            Logger.LogWarning("⚠️ Ya está cargando, ignorando click");
             return;
         }
 
         isLoading = true;
         hasErrors = false;
         errorMessage = string.Empty;
+        lastDebugError = "Login in progress...";
 
         // Forzar actualización de UI
         await InvokeAsync(StateHasChanged);
 
         try
         {
-            Console.WriteLine($"🔧 LOGIN DEBUG - Email: '{email}', Password: '{password}'");
+            Logger.LogInformation("🔧 LOGIN DEBUG - Email: '{Email}', Password length: {Length}",
+                email, password?.Length ?? 0);
+
+            // ✅ Verificación defensiva de AuthService
+            if (AuthService == null)
+            {
+                throw new InvalidOperationException("AuthService no está disponible - servicio no inyectado correctamente");
+            }
 
             // Validar formulario
             if (!ValidateForm())
             {
-                Console.WriteLine("❌ Validación de formulario falló");
+                Logger.LogWarning("❌ Validación de formulario falló");
+                lastDebugError = "Form validation failed";
                 await InvokeAsync(StateHasChanged);
                 return;
             }
 
-            Console.WriteLine("✅ Validación OK, llamando a AuthService...");
+            Logger.LogInformation("✅ Validación OK, llamando a AuthService...");
+            lastDebugError = "Calling AuthService.LoginAsync...";
 
-            // Verificar que AuthService existe
-            if (AuthService == null)
-            {
-                throw new InvalidOperationException("AuthService no está disponible");
-            }
-
+            // ✅ LLAMADA PROTEGIDA al AuthService
             var result = await AuthService.LoginAsync(email.Trim(), password);
 
-            Console.WriteLine($"🔧 Resultado del login - Success: {result?.Success ?? false}");
-            Console.WriteLine($"🔧 Mensaje: {result?.Message ?? "Sin mensaje"}");
+            Logger.LogInformation("🔧 Resultado del login - Success: {Success}", result?.Success ?? false);
 
             if (result?.Success == true)
             {
-                Console.WriteLine("✅ Login exitoso - Redirigiendo...");
+                Logger.LogInformation("✅ Login exitoso - Redirigiendo...");
+                lastDebugError = "Login successful";
                 Snackbar.Add($"¡Bienvenido, {result.User?.Nombre ?? "Usuario"}!", Severity.Success);
 
                 await Task.Delay(500);
@@ -306,31 +361,33 @@
             }
             else
             {
-                Console.WriteLine($"❌ Login fallido: {result?.Message}");
+                var errorMsg = result?.Message ?? "Credenciales incorrectas";
+                Logger.LogWarning("❌ Login fallido: {Error}", errorMsg);
+                lastDebugError = $"Login failed: {errorMsg}";
                 hasErrors = true;
-                errorMessage = result?.Message ?? "Credenciales incorrectas. Verifica tu email y contraseña.";
+                errorMessage = errorMsg;
                 Snackbar.Add(errorMessage, Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"💥 Error inesperado en login: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            var errorMsg = $"Error en login: {ex.Message}";
+            Logger.LogError(ex, "💥 {Error}", errorMsg);
+            lastDebugError = errorMsg;
             hasErrors = true;
-            errorMessage = $"Error del sistema: {ex.Message}";
+            errorMessage = "Error del sistema. Verifique la consola para más detalles.";
             Snackbar.Add(errorMessage, Severity.Error);
         }
         finally
         {
             isLoading = false;
             await InvokeAsync(StateHasChanged);
-            Console.WriteLine("🔧 LOGIN: Proceso finalizado");
+            Logger.LogInformation("🔧 LOGIN: Proceso finalizado");
         }
     }
 
     private void TogglePasswordVisibility()
     {
-        Console.WriteLine("🔧 Toggle password visibility");
         if (showPassword)
         {
             showPassword = false;
@@ -346,12 +403,11 @@
         StateHasChanged();
     }
 
-    // Manejar Enter en los campos
     private async Task OnKeyPress(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !isLoading)
         {
-            Console.WriteLine("🔧 Enter presionado, ejecutando login");
+            Logger.LogDebug("🔧 Enter presionado, ejecutando login");
             await HandleLogin();
         }
     }
