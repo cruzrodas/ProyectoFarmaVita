@@ -75,20 +75,6 @@
         </MudNavGroup>
     </AuthorizeView>
 
-    <!-- Reportes - Solo Admin y Gerente -->
-    <AuthorizeView Policy="@AuthorizationPolicies.ReportesAccess">
-        <MudNavGroup Text="Reportes" Icon="@Icons.Material.Filled.Assessment" Expanded="false">
-            <MudNavLink Href="/reportes/ventas" Icon="@Icons.Material.Filled.TrendingUp">
-                Ventas
-            </MudNavLink>
-            <MudNavLink Href="/reportes/inventario" Icon="@Icons.Material.Filled.Analytics">
-                Inventario
-            </MudNavLink>
-            <MudNavLink Href="/reportes/personal" Icon="@Icons.Material.Filled.Group">
-                Personal
-            </MudNavLink>
-        </MudNavGroup>
-    </AuthorizeView>
 
     <!-- Configuración - Solo Administrador -->
     <AuthorizeView Policy="@AuthorizationPolicies.ConfiguracionAccess">
@@ -122,7 +108,7 @@
         <MudNavLink Href="/ventas" Icon="@Icons.Material.Filled.ShoppingCart">
             Nueva Venta
         </MudNavLink>
-        <MudNavLink Href="/productos" Icon="@Icons.Material.Filled.Search">
+        <MudNavLink Href="/producto" Icon="@Icons.Material.Filled.Search">
             Buscar Producto
         </MudNavLink>
     </AuthorizeView>

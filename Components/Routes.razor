@@ -1,6 +1,23 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
+﻿@using Microsoft.AspNetCore.Components.Authorization
+
+<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
+    <NotFound>
+        <PageTitle>Página no encontrada</PageTitle>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <div class="container mt-5 text-center">
+                <div class="card">
+                    <div class="card-body">
+                        <h1 class="text-warning display-1">404</h1>
+                        <h2>Página no encontrada</h2>
+                        <p class="lead mt-3">La página que buscas no existe.</p>
+                        <a href="/" class="btn btn-primary mt-3">Ir al Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        </LayoutView>
+    </NotFound>
 </Router>
