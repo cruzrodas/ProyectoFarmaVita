@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
@@ -24,38 +24,77 @@ using ProyectoFarmaVita.Services.SucursalServices;
 using ProyectoFarmaVita.Services.TelefonoServices;
 using ProyectoFarmaVita.Services.TurnoTrabajoService;
 using ProyectoFarmaVita.Services.TurnoTrabajoServices;
-using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ? MODERNIZADO: Add services to the container para formularios con estado
+// ================================================================
+// CONFIGURACIÓN DE SERVICIOS
+// ================================================================
+
+// Configurar Razor Components con Interactive Server
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// ? CR�TICO: Agregar RazorPages para formularios con estado persistente
+// Configurar Razor Pages (necesario para algunos formularios)
 builder.Services.AddRazorPages();
 
-// CONFIGURAR ENTITY FRAMEWORK
+// ================================================================
+// CONFIGURACIÓN DE BASE DE DATOS
+// ================================================================
+
+// Configurar Entity Framework con Factory y DbContext
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+// DbContextFactory para servicios que lo necesiten (como PersonaService)
 builder.Services.AddDbContextFactory<FarmaDbContext>(options =>
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure());
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    options.UseSqlServer(connectionString, sqlServerOptions =>
+    {
+        sqlServerOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null);
+        sqlServerOptions.CommandTimeout(120);
+    });
+
+    // Solo en desarrollo
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.EnableDetailedErrors();
+    }
+
+    // Deshabilitar lazy loading para mejor control
     options.UseLazyLoadingProxies(false);
 }, ServiceLifetime.Scoped);
 
-// Configurar MudBlazor
-builder.Services.AddMudServices(config =>
+// DbContext regular para servicios que no necesitan Factory
+builder.Services.AddDbContext<FarmaDbContext>(options =>
 {
-    config.SnackbarConfiguration.PreventDuplicates = false;
-    config.SnackbarConfiguration.NewestOnTop = false;
-    config.SnackbarConfiguration.ShowCloseIcon = true;
-    config.SnackbarConfiguration.VisibleStateDuration = 10000;
-    config.SnackbarConfiguration.HideTransitionDuration = 500;
-    config.SnackbarConfiguration.ShowTransitionDuration = 500;
-});
+    options.UseSqlServer(connectionString, sqlServerOptions =>
+    {
+        sqlServerOptions.EnableRetryOnFailure();
+        sqlServerOptions.CommandTimeout(120);
+    });
 
-// Configurar autenticaci�n con cookies
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.EnableDetailedErrors();
+    }
+
+    options.UseLazyLoadingProxies(false);
+}, ServiceLifetime.Scoped);
+
+// ================================================================
+// CONFIGURACIÓN DE AUTENTICACIÓN Y AUTORIZACIÓN
+// ================================================================
+
+// Configurar HttpContextAccessor (DEBE ir antes de authentication)
+builder.Services.AddHttpContextAccessor();
+
+// Configurar autenticación con cookies
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -64,15 +103,45 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.AccessDeniedPath = "/access-denied";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
+        options.Cookie.Name = "FarmaVitaAuth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.IsEssential = true;
+
+        // Eventos para debugging (solo en desarrollo)
+        if (builder.Environment.IsDevelopment())
+        {
+            options.Events = new CookieAuthenticationEvents
+            {
+                OnSigningIn = context =>
+                {
+                    Console.WriteLine($"🔧 COOKIE AUTH: Signing in user {context.Principal?.Identity?.Name}");
+                    return Task.CompletedTask;
+                },
+                OnSignedIn = context =>
+                {
+                    Console.WriteLine($"✅ COOKIE AUTH: User signed in {context.Principal?.Identity?.Name}");
+                    return Task.CompletedTask;
+                },
+                OnSigningOut = context =>
+                {
+                    Console.WriteLine($"🔧 COOKIE AUTH: Signing out user");
+                    return Task.CompletedTask;
+                },
+                OnValidatePrincipal = context =>
+                {
+                    Console.WriteLine($"🔧 COOKIE AUTH: Validating principal {context.Principal?.Identity?.Name}");
+                    return Task.CompletedTask;
+                }
+            };
+        }
     });
 
-// Configurar autorizaci�n
+// Configurar autorización con políticas
 builder.Services.AddAuthorization(options =>
 {
-    // Pol�ticas basadas en roles
+    // Políticas basadas en roles
     options.AddPolicy(AuthorizationPolicies.RequireAdminRole, policy =>
         policy.RequireRole("Administrador"));
 
@@ -85,7 +154,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.RequireSalesRole, policy =>
         policy.RequireRole("Administrador", "Gerente", "Farmaceuta", "Vendedor"));
 
-    // Pol�ticas basadas en m�dulos usando handlers personalizados
+    // Políticas basadas en módulos usando handlers personalizados
     options.AddPolicy(AuthorizationPolicies.PersonasAccess, policy =>
         policy.Requirements.Add(new ModuleAccessRequirement("Personas")));
 
@@ -104,72 +173,164 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.ConfiguracionAccess, policy =>
         policy.Requirements.Add(new ModuleAccessRequirement("Configuracion")));
 
-    // Pol�tica para redirigir autom�ticamente al login
+    // Política por defecto: requiere usuario autenticado
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
 });
 
-// Registrar HttpContextAccessor
-builder.Services.AddHttpContextAccessor();
+// ================================================================
+// CONFIGURACIÓN DE MudBlazor
+// ================================================================
 
-// Registrar servicios de autenticaci�n
+builder.Services.AddMudServices(config =>
+{
+    config.SnackbarConfiguration.PreventDuplicates = false;
+    config.SnackbarConfiguration.NewestOnTop = true;
+    config.SnackbarConfiguration.ShowCloseIcon = true;
+    config.SnackbarConfiguration.VisibleStateDuration = 5000;
+    config.SnackbarConfiguration.HideTransitionDuration = 500;
+    config.SnackbarConfiguration.ShowTransitionDuration = 500;
+    config.SnackbarConfiguration.SnackbarVariant = MudBlazor.Variant.Filled;
+});
+
+// ================================================================
+// REGISTRO DE SERVICIOS DE APLICACIÓN
+// ================================================================
+
+// Servicios de autenticación y autorización
 builder.Services.AddScoped<IAuthService, AuthService>();
-
-// Registrar handlers de autorizaci�n
 builder.Services.AddScoped<IAuthorizationHandler, ModuleAccessHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, SucursalAccessHandler>();
 
-// REGISTRAR SERVICIOS DE NEGOCIO
-builder.Services.AddScoped<IPersonaService, SPersonaServices>();
-builder.Services.AddScoped<ISucursalService, SSucursalService>();
-builder.Services.AddScoped<IEstadoCivil, SEstadoCivil>();
-builder.Services.AddScoped<IGeneroServices, SGeneroServices>();
-builder.Services.AddScoped<IdepartamentoService, SDepartamentoService>();
-builder.Services.AddScoped<IMunicipioService, SMunicipioService>();
-builder.Services.AddScoped<ITelefonoService, STelefonoService>();
-builder.Services.AddScoped<IDireccionService, SDireccionService>();
-builder.Services.AddScoped<ITurnoTrabajoService, STurnoTrabajoService>();
+// Servicios de negocio (ordenados alfabéticamente)
 builder.Services.AddScoped<IAsignacionTurnoService, SAsignacionTurnoService>();
 builder.Services.AddScoped<ICategoriaService, SCategoriaService>();
-builder.Services.AddScoped<IProveedorService, SProveedorService>();
-builder.Services.AddScoped<IProductoService, SProductoService>();
+builder.Services.AddScoped<IdepartamentoService, SDepartamentoService>();
+builder.Services.AddScoped<IDireccionService, SDireccionService>();
+builder.Services.AddScoped<IEstadoCivil, SEstadoCivil>();
+builder.Services.AddScoped<IGeneroServices, SGeneroServices>();
 builder.Services.AddScoped<IInventarioService, SInventarioService>();
+builder.Services.AddScoped<IMunicipioService, SMunicipioService>();
+builder.Services.AddScoped<IPersonaService, SPersonaServices>();
+builder.Services.AddScoped<IProductoService, SProductoService>();
+builder.Services.AddScoped<IProveedorService, SProveedorService>();
+builder.Services.AddScoped<ISucursalService, SSucursalService>();
+builder.Services.AddScoped<ITelefonoService, STelefonoService>();
+builder.Services.AddScoped<ITurnoTrabajoService, STurnoTrabajoService>();
 
-// Agregar HttpContextAccessor
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddRazorPages();
+// ================================================================
+// CONSTRUCCIÓN DE LA APLICACIÓN
+// ================================================================
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ================================================================
+// CONFIGURACIÓN DEL PIPELINE HTTP
+// ================================================================
+
+// Configurar manejo de errores
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
+else
+{
+    app.UseDeveloperExceptionPage();
+}
 
+// Middleware básico
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// ? CR�TICO: UseAntiforgery DEBE ir ANTES de UseAuthentication
+// ⚠️ ORDEN CRÍTICO: UseAntiforgery DEBE ir ANTES de UseAuthentication
 app.UseAntiforgery();
 
-// Configurar pipeline de autenticaci�n (ORDEN IMPORTANTE)
+// ⚠️ ORDEN CRÍTICO: UseAuthentication DEBE ir ANTES de UseAuthorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ? CR�TICO: MapRazorPages DEBE ir DESPU�S de UseAntiforgery
+// ================================================================
+// CONFIGURACIÓN DE RUTAS Y ENDPOINTS
+// ================================================================
+
+// Mapear Razor Pages
 app.MapRazorPages();
 
+// Mapear Razor Components con modo interactivo
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Agregar endpoint de logout
+// ================================================================
+// ENDPOINTS PERSONALIZADOS
+// ================================================================
+
+// Endpoint de logout
 app.MapPost("/logout", async (HttpContext context, IAuthService authService) =>
 {
-    await authService.LogoutAsync();
-    return Results.Redirect("/login");
+    try
+    {
+        Console.WriteLine("🔧 ENDPOINT: /logout called");
+        await authService.LogoutAsync();
+        Console.WriteLine("✅ ENDPOINT: Logout successful");
+        return Results.Redirect("/login");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ ENDPOINT: Logout error - {ex.Message}");
+        return Results.Redirect("/login");
+    }
 });
+
+// Endpoint de test de autenticación (solo en desarrollo)
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/test-auth", async (HttpContext context, IAuthService authService) =>
+    {
+        try
+        {
+            var isAuthenticated = authService.IsAuthenticated;
+            var currentUser = await authService.GetCurrentUserAsync();
+            var roles = await authService.GetUserRolesAsync();
+
+            var result = new
+            {
+                IsAuthenticated = isAuthenticated,
+                User = currentUser?.Nombre + " " + currentUser?.Apellido,
+                Email = currentUser?.Email,
+                Role = currentUser?.IdRoolNavigation?.TipoRol,
+                Roles = roles,
+                Claims = context.User.Claims.Select(c => new { c.Type, c.Value }).ToArray(),
+                Timestamp = DateTime.Now
+            };
+
+            return Results.Json(result);
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new { Error = ex.Message, Timestamp = DateTime.Now });
+        }
+    });
+}
+
+// ================================================================
+// INICIALIZACIÓN Y LOGGING
+// ================================================================
+
+// Log de configuración en desarrollo
+if (app.Environment.IsDevelopment())
+{
+    Console.WriteLine("🚀 FarmaVita Application Starting...");
+    Console.WriteLine($"🔧 Environment: {app.Environment.EnvironmentName}");
+    Console.WriteLine($"🔧 Connection String Configured: {!string.IsNullOrEmpty(connectionString)}");
+    Console.WriteLine("🔧 Authentication: Cookie-based");
+    Console.WriteLine("🔧 Authorization: Role + Policy-based");
+    Console.WriteLine("✅ Application configured successfully");
+}
+
+// ================================================================
+// EJECUTAR APLICACIÓN
+// ================================================================
 
 app.Run();

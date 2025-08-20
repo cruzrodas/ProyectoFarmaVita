@@ -1,5 +1,4 @@
-﻿@* Routes.razor - Versión corregida *@
-@using Microsoft.AspNetCore.Components.Authorization
+﻿@using Microsoft.AspNetCore.Components.Authorization
 
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
@@ -8,21 +7,31 @@
                 @if (authContext.User.Identity?.IsAuthenticated != true)
                 {
                     <!-- Usuario no autenticado - redirigir al login -->
-                    <RedirectToLogin />
+                    <LayoutView Layout="typeof(Layout.LoginLayout)">
+                        <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+                            <div class="text-center">
+                                <h3>Acceso no autorizado</h3>
+                                <p>Redirigiendo al login...</p>
+                                <script>window.location.href = '/login';</script>
+                            </div>
+                        </div>
+                    </LayoutView>
                 }
                 else
                 {
                     <!-- Usuario autenticado pero sin permisos -->
-                    <div class="container mt-5 text-center">
-                        <div class="card">
-                            <div class="card-body">
-                                <h1 class="text-danger">403</h1>
-                                <h2>Acceso Denegado</h2>
-                                <p class="lead mt-3">No tienes permisos para acceder a esta página.</p>
-                                <a href="/" class="btn btn-primary mt-3">Ir al Dashboard</a>
+                    <LayoutView Layout="typeof(Layout.MainLayout)">
+                        <div class="container mt-5 text-center">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h1 class="text-danger">403</h1>
+                                    <h2>Acceso Denegado</h2>
+                                    <p class="lead mt-3">No tienes permisos para acceder a esta página.</p>
+                                    <a href="/" class="btn btn-primary mt-3">Ir al Dashboard</a>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </LayoutView>
                 }
             </NotAuthorized>
             <Authorizing>
@@ -56,24 +65,10 @@
                 </LayoutView>
             </Authorized>
             <NotAuthorized>
-                <RedirectToLogin />
+                <LayoutView Layout="typeof(Layout.LoginLayout)">
+                    <script>window.location.href = '/login';</script>
+                </LayoutView>
             </NotAuthorized>
         </AuthorizeView>
     </NotFound>
 </Router>
-
-@code {
-    // Componente para redirigir al login
-    public class RedirectToLogin : ComponentBase
-    {
-        [Inject] NavigationManager Navigation { get; set; } = default!;
-
-        protected override void OnAfterRender(bool firstRender)
-        {
-            if (firstRender)
-            {
-                Navigation.NavigateTo("/login", forceLoad: true);
-            }
-        }
-    }
-}

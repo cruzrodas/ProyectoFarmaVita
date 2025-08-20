@@ -1,7 +1,290 @@
 ﻿@page "/"
+@using ProyectoFarmaVita.Services.AuthServices
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
 
-<PageTitle>Home</PageTitle>
+<PageTitle>FarmaVita - Dashboard</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
+    
+    @if (currentUser != null)
+    {
+        <!-- Dashboard basado en el rol del usuario -->
+        @if (currentUser.IdRoolNavigation?.TipoRol == "Administrador")
+        {
+            <AdminDashboard />
+        }
+        else if (currentUser.IdRoolNavigation?.TipoRol == "Gerente")
+        {
+            <GerenteDashboard />
+        }
+        else if (currentUser.IdRoolNavigation?.TipoRol == "Farmaceuta")
+        {
+            <FarmaceutaDashboard />
+        }
+        else if (currentUser.IdRoolNavigation?.TipoRol == "Vendedor")
+        {
+            <VendedorDashboard />
+        }
+        else
+        {
+            <!-- Dashboard genérico -->
+            <DefaultDashboard />
+        }
+    }
+    else
+    {
+        <MudContainer Class="d-flex justify-center align-center" Style="height: 50vh;">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </MudContainer>
+    }
+    
+</MudContainer>
 
-Welcome to your new app.
+@code {
+    private Models.Persona? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Console.WriteLine("🔧 HOME: Inicializando dashboard...");
+            
+            // Verificar autenticación
+            if (!AuthService.IsAuthenticated)
+            {
+                Console.WriteLine("❌ HOME: Usuario no autenticado");
+                NavigationManager.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+
+            // Obtener usuario actual
+            currentUser = await AuthService.GetCurrentUserAsync();
+            
+            if (currentUser == null)
+            {
+                Console.WriteLine("❌ HOME: No se pudo obtener usuario actual");
+                NavigationManager.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+
+            Console.WriteLine($"✅ HOME: Usuario cargado - {currentUser.Nombre} ({currentUser.IdRoolNavigation?.TipoRol})");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 HOME ERROR: {ex.Message}");
+            NavigationManager.NavigateTo("/login", forceLoad: true);
+        }
+    }
+}
+
+@* Componentes de Dashboard por Rol *@
+
+<AdminDashboard>
+    <MudGrid Spacing="3">
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h4" Color="Color.Primary">
+                    <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Class="mr-3" />
+                    Panel de Administración
+                </MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">
+                    Bienvenido, @currentUser?.Nombre @currentUser?.Apellido
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        
+        <!-- Tarjetas de acceso rápido -->
+        <MudItem xs="12" md="6" lg="3">
+            <MudCard Elevation="3" Class="pa-4 hover-card">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Primary" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.h6">Gestión Personal</MudText>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/personas">Ver Personas</MudButton>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6" lg="3">
+            <MudCard Elevation="3" Class="pa-4 hover-card">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Large" Color="Color.Secondary" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.h6">Inventarios</MudText>
+                            <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="/inventario">Ver Inventarios</MudButton>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6" lg="3">
+            <MudCard Elevation="3" Class="pa-4 hover-card">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Large" Color="Color.Tertiary" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.h6">Sucursales</MudText>
+                            <MudButton Variant="Variant.Text" Color="Color.Tertiary" Href="/sucursal">Ver Sucursales</MudButton>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6" lg="3">
+            <MudCard Elevation="3" Class="pa-4 hover-card">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Large" Color="Color.Warning" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.h6">Configuración</MudText>
+                            <MudButton Variant="Variant.Text" Color="Color.Warning" Href="/roles">Ver Roles</MudButton>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</AdminDashboard>
+
+<GerenteDashboard>
+    <MudGrid Spacing="3">
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h4" Color="Color.Primary">
+                    <MudIcon Icon="@Icons.Material.Filled.Business" Class="mr-3" />
+                    Panel de Gerencia
+                </MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">
+                    Bienvenido, @currentUser?.Nombre @currentUser?.Apellido
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3" Class="pa-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Gestión de Personal</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/personas" Class="mt-2">Ver Empleados</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3" Class="pa-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Inventarios</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Href="/inventario" Class="mt-2">Control de Stock</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</GerenteDashboard>
+
+<FarmaceutaDashboard>
+    <MudGrid Spacing="3">
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h4" Color="Color.Primary">
+                    <MudIcon Icon="@Icons.Material.Filled.LocalPharmacy" Class="mr-3" />
+                    Panel de Farmacia
+                </MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">
+                    Bienvenido, @currentUser?.Nombre @currentUser?.Apellido
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3" Class="pa-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Gestión de Productos</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/producto" Class="mt-2">Ver Productos</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3" Class="pa-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Control de Inventario</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Href="/inventario" Class="mt-2">Ver Stock</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</FarmaceutaDashboard>
+
+<VendedorDashboard>
+    <MudGrid Spacing="3">
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h4" Color="Color.Primary">
+                    <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Class="mr-3" />
+                    Panel de Ventas
+                </MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">
+                    Bienvenido, @currentUser?.Nombre @currentUser?.Apellido
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3" Class="pa-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Punto de Venta</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/ventas" Class="mt-2">Nueva Venta</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3" Class="pa-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Buscar Productos</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Href="/producto" Class="mt-2">Ver Catálogo</MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</VendedorDashboard>
+
+<DefaultDashboard>
+    <MudGrid Spacing="3">
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h4" Color="Color.Primary">
+                    <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-3" />
+                    Dashboard
+                </MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">
+                    Bienvenido, @currentUser?.Nombre @currentUser?.Apellido
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Warning">
+                    Rol: @(currentUser?.IdRoolNavigation?.TipoRol ?? "Sin asignar")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</DefaultDashboard>
+
+<style>
+    .hover-card {
+        transition: transform 0.2s ease-in-out;
+        cursor: pointer;
+    }
+
+    .hover-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+</style>
