@@ -2,22 +2,77 @@
 
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
-        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated != true)
+                {
+                    <!-- Usuario no autenticado - redirigir al login -->
+                    <RedirectToLogin />
+                }
+                else
+                {
+                    <!-- Usuario autenticado pero sin permisos -->
+                    <div class="container mt-5 text-center">
+                        <div class="card">
+                            <div class="card-body">
+                                <h1 class="text-danger">403</h1>
+                                <h2>Acceso Denegado</h2>
+                                <p class="lead mt-3">No tienes permisos para acceder a esta página.</p>
+                                <a href="/" class="btn btn-primary mt-3">Ir al Dashboard</a>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </NotAuthorized>
+            <Authorizing>
+                <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-3">Verificando autenticación...</p>
+                    </div>
+                </div>
+            </Authorizing>
+        </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
     <NotFound>
         <PageTitle>Página no encontrada</PageTitle>
-        <LayoutView Layout="typeof(Layout.MainLayout)">
-            <div class="container mt-5 text-center">
-                <div class="card">
-                    <div class="card-body">
-                        <h1 class="text-warning display-1">404</h1>
-                        <h2>Página no encontrada</h2>
-                        <p class="lead mt-3">La página que buscas no existe.</p>
-                        <a href="/" class="btn btn-primary mt-3">Ir al Dashboard</a>
+        <AuthorizeView>
+            <Authorized>
+                <LayoutView Layout="typeof(Layout.MainLayout)">
+                    <div class="container mt-5 text-center">
+                        <div class="card">
+                            <div class="card-body">
+                                <h1 class="text-warning display-1">404</h1>
+                                <h2>Página no encontrada</h2>
+                                <p class="lead mt-3">La página que buscas no existe.</p>
+                                <a href="/" class="btn btn-primary mt-3">Ir al Dashboard</a>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </LayoutView>
+                </LayoutView>
+            </Authorized>
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeView>
     </NotFound>
 </Router>
+
+@code {
+    // Componente para redirigir al login
+    public class RedirectToLogin : ComponentBase
+    {
+        [Inject] NavigationManager Navigation { get; set; } = default!;
+
+        protected override void OnAfterRender(bool firstRender)
+        {
+            if (firstRender)
+            {
+                Navigation.NavigateTo("/login", forceLoad: true);
+            }
+        }
+    }
+}

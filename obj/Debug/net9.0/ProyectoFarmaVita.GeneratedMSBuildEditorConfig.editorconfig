@@ -35,6 +35,10 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Layout/LoginLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTG9naW5MYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Bryan/OneDrive/Desktop/Proyectos Blazor/ProyectoFarmaVita/ProyectoFarmaVita/Components/Pages/AsignacionTurnoTrabajo/AgregarEditarAsignacionTurno.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBc2lnbmFjaW9uVHVybm9UcmFiYWpvXEFncmVnYXJFZGl0YXJBc2lnbmFjaW9uVHVybm8ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 

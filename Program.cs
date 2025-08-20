@@ -24,6 +24,7 @@ using ProyectoFarmaVita.Services.SucursalServices;
 using ProyectoFarmaVita.Services.TelefonoServices;
 using ProyectoFarmaVita.Services.TurnoTrabajoService;
 using ProyectoFarmaVita.Services.TurnoTrabajoServices;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,12 +50,29 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/login";
         options.LogoutPath = "/logout";
-        options.AccessDeniedPath = "/access-denied";
+        options.AccessDeniedPath = "/login";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
+
+        // IMPORTANTE: Evitar bucles de redirección
+        options.Events.OnRedirectToLogin = context =>
+        {
+            var requestPath = context.Request.Path;
+
+            // Si ya estamos en login, no redirigir
+            if (requestPath.StartsWithSegments("/login"))
+            {
+                context.Response.StatusCode = 401;
+                return Task.CompletedTask;
+            }
+
+            // Redirigir sin ReturnUrl para evitar bucles
+            context.Response.Redirect("/login");
+            return Task.CompletedTask;
+        };
     });
 
 // Configurar autorización
@@ -73,7 +91,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.RequireSalesRole, policy =>
         policy.RequireRole("Administrador", "Gerente", "Farmaceuta", "Vendedor"));
 
-    // Políticas basadas en módulos
+    // Políticas basadas en módulos usando handlers personalizados
     options.AddPolicy(AuthorizationPolicies.PersonasAccess, policy =>
         policy.Requirements.Add(new ModuleAccessRequirement("Personas")));
 
@@ -91,6 +109,11 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy(AuthorizationPolicies.ConfiguracionAccess, policy =>
         policy.Requirements.Add(new ModuleAccessRequirement("Configuracion")));
+
+    // Política para redirigir automáticamente al login
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
 });
 
 // Registrar HttpContextAccessor
@@ -134,6 +157,7 @@ app.UseAntiforgery(); // NUEVO en .NET 8
 // NUEVA SINTAXIS .NET 8 para assets estáticos
 app.MapStaticAssets();
 
+// IMPORTANTE: El orden importa para la autenticación
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -147,5 +171,8 @@ app.MapPost("/logout", async (IAuthService authService, HttpContext context) =>
     await authService.LogoutAsync();
     return Results.Redirect("/login");
 });
+
+// Endpoint adicional para manejar acceso denegado
+app.MapGet("/access-denied", () => Results.Redirect("/login"));
 
 app.Run();
