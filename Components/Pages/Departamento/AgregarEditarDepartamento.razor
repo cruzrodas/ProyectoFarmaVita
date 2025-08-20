@@ -17,7 +17,8 @@
         @(IdDepartamento.HasValue ? "Editar Departamento" : "Agregar Nuevo Departamento")
     </MudText>
 
-    <EditForm Model="departamento" OnValidSubmit="HandleSubmit">
+    @* ============ CAMBIO 1: Agregar FormName ============ *@
+    <EditForm Model="departamento" OnValidSubmit="HandleSubmit" FormName="DepartamentoForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
@@ -65,7 +66,10 @@
 @code {
     [Parameter] public int? IdDepartamento { get; set; }
 
-    private Departamento departamento = new Departamento();
+    @* ============ CAMBIO 2: Agregar [SupplyParameterFromForm] y cambiar a property ============ *@
+    [SupplyParameterFromForm]
+    private Departamento departamento { get; set; } = new Departamento();
+
     private bool isSubmitting = false;
 
     protected override async Task OnInitializedAsync()

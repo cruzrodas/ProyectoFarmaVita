@@ -28,9 +28,12 @@ using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// NUEVA SINTAXIS .NET 8: Add services to the container.
+// ? MODERNIZADO: Add services to the container para formularios con estado
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// ? CRÍTICO: Agregar RazorPages para formularios con estado persistente
+builder.Services.AddRazorPages();
 
 // CONFIGURAR ENTITY FRAMEWORK
 builder.Services.AddDbContextFactory<FarmaDbContext>(options =>
@@ -42,7 +45,15 @@ builder.Services.AddDbContextFactory<FarmaDbContext>(options =>
 }, ServiceLifetime.Scoped);
 
 // Configurar MudBlazor
-builder.Services.AddMudServices();
+builder.Services.AddMudServices(config =>
+{
+    config.SnackbarConfiguration.PreventDuplicates = false;
+    config.SnackbarConfiguration.NewestOnTop = false;
+    config.SnackbarConfiguration.ShowCloseIcon = true;
+    config.SnackbarConfiguration.VisibleStateDuration = 10000;
+    config.SnackbarConfiguration.HideTransitionDuration = 500;
+    config.SnackbarConfiguration.ShowTransitionDuration = 500;
+});
 
 // Configurar autenticación con cookies
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -50,29 +61,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/login";
         options.LogoutPath = "/logout";
-        options.AccessDeniedPath = "/login";
+        options.AccessDeniedPath = "/access-denied";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
-
-        // IMPORTANTE: Evitar bucles de redirección
-        options.Events.OnRedirectToLogin = context =>
-        {
-            var requestPath = context.Request.Path;
-
-            // Si ya estamos en login, no redirigir
-            if (requestPath.StartsWithSegments("/login"))
-            {
-                context.Response.StatusCode = 401;
-                return Task.CompletedTask;
-            }
-
-            // Redirigir sin ReturnUrl para evitar bucles
-            context.Response.Redirect("/login");
-            return Task.CompletedTask;
-        };
     });
 
 // Configurar autorización
@@ -142,6 +136,10 @@ builder.Services.AddScoped<IProveedorService, SProveedorService>();
 builder.Services.AddScoped<IProductoService, SProductoService>();
 builder.Services.AddScoped<IInventarioService, SInventarioService>();
 
+// Agregar HttpContextAccessor
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddRazorPages();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -152,27 +150,26 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseAntiforgery(); // NUEVO en .NET 8
+app.UseStaticFiles();
 
-// NUEVA SINTAXIS .NET 8 para assets estáticos
-app.MapStaticAssets();
+// ? CRÍTICO: UseAntiforgery DEBE ir ANTES de UseAuthentication
+app.UseAntiforgery();
 
-// IMPORTANTE: El orden importa para la autenticación
+// Configurar pipeline de autenticación (ORDEN IMPORTANTE)
 app.UseAuthentication();
 app.UseAuthorization();
 
-// NUEVA SINTAXIS .NET 8: Mapear componentes Razor
+// ? CRÍTICO: MapRazorPages DEBE ir DESPUÉS de UseAntiforgery
+app.MapRazorPages();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Endpoint para logout
-app.MapPost("/logout", async (IAuthService authService, HttpContext context) =>
+// Agregar endpoint de logout
+app.MapPost("/logout", async (HttpContext context, IAuthService authService) =>
 {
     await authService.LogoutAsync();
     return Results.Redirect("/login");
 });
-
-// Endpoint adicional para manejar acceso denegado
-app.MapGet("/access-denied", () => Results.Redirect("/login"));
 
 app.Run();

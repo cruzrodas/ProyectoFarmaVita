@@ -81,7 +81,7 @@
             </MudPaper>
 
             <!-- Formulario Principal -->
-            <EditForm Model="inventarioForm" OnValidSubmit="HandleSubmit">
+            <EditForm Model="inventarioForm" OnValidSubmit="HandleSubmit" FormName="InventarioForm">
                 <DataAnnotationsValidator />
 
                 <!-- Información Básica del Inventario -->
@@ -806,13 +806,10 @@
     }
 
     @@media (max-width: 1279px) {
-        .sidebar-sticky
-
-    {
-        position: relative;
-        top: auto;
-    }
-
+        .sidebar-sticky {
+            position: relative;
+            top: auto;
+        }
     }
 
     /* === CARDS Y COMPONENTES === */
@@ -996,62 +993,53 @@
 
     /* === RESPONSIVE ESPECÍFICO === */
     @@media (max-width: 959px) {
-        .inventory-stat-card
+        .inventory-stat-card {
+            margin-bottom: 8px;
+        }
 
-    {
-        margin-bottom: 8px;
-    }
+        .action-button {
+            min-height: 44px;
+            font-size: 0.875rem;
+        }
 
-    .action-button {
-        min-height: 44px;
-        font-size: 0.875rem;
-    }
-
-    .product-mobile-card {
-        margin-bottom: 12px;
-    }
-
+        .product-mobile-card {
+            margin-bottom: 12px;
+        }
     }
 
     @@media (max-width: 599px) {
-        .pa-2
+        .pa-2 {
+            padding: 8px !important;
+        }
 
-    {
-        padding: 8px !important;
-    }
+        .pa-md-4 {
+            padding: 12px !important;
+        }
 
-    .pa-md-4 {
-        padding: 12px !important;
-    }
+        .pa-md-6 {
+            padding: 16px !important;
+        }
 
-    .pa-md-6 {
-        padding: 16px !important;
-    }
+        .sidebar-sticky {
+            margin-top: 16px;
+        }
 
-    .sidebar-sticky {
-        margin-top: 16px;
-    }
-
-    .inventory-stat-card .mud-card-content {
-        padding: 12px !important;
-    }
-
+        .inventory-stat-card .mud-card-content {
+            padding: 12px !important;
+        }
     }
 
     /* === ANIMACIONES === */
     @@keyframes fadeInUp {
-        from
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
 
-    {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .product-inventory-card {
@@ -1060,20 +1048,17 @@
 
     /* === DARK MODE SUPPORT === */
     @@media (prefers-color-scheme: dark) {
-        .product-info-card
+        .product-info-card {
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, var(--mud-palette-background-grey) 100%);
+        }
 
-    {
-        background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, var(--mud-palette-background-grey) 100%);
-    }
+        .summary-card {
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, var(--mud-palette-background) 100%);
+        }
 
-    .summary-card {
-        background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, var(--mud-palette-background) 100%);
-    }
-
-    .product-edit-card {
-        background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, var(--mud-palette-background) 100%);
-    }
-
+        .product-edit-card {
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, var(--mud-palette-background) 100%);
+        }
     }
 </style>
 
@@ -1081,7 +1066,10 @@
     [Parameter] public int? IdInventario { get; set; }
 
     private Inventario inventario = new Inventario();
-    private InventarioFormModel inventarioForm = new InventarioFormModel();
+
+    [SupplyParameterFromForm]
+    private InventarioFormModel inventarioForm { get; set; } = new InventarioFormModel();
+
     private bool isSubmitting = false;
     private bool isProcessing = false;
     private string nombreValidationMessage = "";

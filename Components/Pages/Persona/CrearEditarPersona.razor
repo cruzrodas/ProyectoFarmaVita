@@ -54,7 +54,7 @@
 
 			<!-- Form Section -->
 			<MudItem xs="12">
-				<EditForm Model="@persona" OnValidSubmit="@GuardarPersona">
+				<EditForm Model="@persona" OnValidSubmit="@GuardarPersona" FormName="PersonaForm">
 					<DataAnnotationsValidator />
 					<MudGrid>
 						<!-- Información Personal -->
@@ -488,7 +488,8 @@
 @code {
 	[Parameter] public int? IdPersona { get; set; }
 
-	private Persona persona = new();
+	[SupplyParameterFromForm]
+	private Persona persona { get; set; } = new();
 	private List<Rol> roles = new();
 	private List<Sucursal> sucursales = new();
 	private List<Genero> generos = new();

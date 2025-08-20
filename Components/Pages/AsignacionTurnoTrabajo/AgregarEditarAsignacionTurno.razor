@@ -23,7 +23,8 @@
         @(IdAsignacion.HasValue ? "Editar Asignación de Turno" : "Agregar Nueva Asignación de Turno")
     </MudText>
 
-    <EditForm Model="asignacionTurno" OnValidSubmit="HandleSubmit">
+    @* ============ CAMBIO 1: Agregar FormName ============ *@
+    <EditForm Model="asignacionTurno" OnValidSubmit="HandleSubmit" FormName="AsignacionTurnoForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
@@ -171,7 +172,10 @@
 @code {
     [Parameter] public int? IdAsignacion { get; set; }
 
-    private AsignacionTurno asignacionTurno = new AsignacionTurno();
+    @* ============ CAMBIO 2: Agregar [SupplyParameterFromForm] y cambiar a property ============ *@
+    [SupplyParameterFromForm]
+    private AsignacionTurno asignacionTurno { get; set; } = new AsignacionTurno();
+
     private List<Persona> personas = new();
     private List<Sucursal> sucursales = new();
     private List<TurnoTrabajo> turnos = new();

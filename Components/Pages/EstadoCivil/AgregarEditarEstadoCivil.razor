@@ -17,7 +17,7 @@
         @(IdEstadoCivil.HasValue ? "Editar Estado Civil" : "Agregar Nuevo Estado Civil")
     </MudText>
 
-    <EditForm Model="estadoCivil" OnValidSubmit="HandleSubmit">
+    <EditForm Model="estadoCivil" OnValidSubmit="HandleSubmit" FormName="EstadoCivilForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
@@ -58,14 +58,15 @@
                 }
             </MudButton>
         </div>
- 
+
     </EditForm>
 </MudPaper>
 
 @code {
     [Parameter] public int? IdEstadoCivil { get; set; }
 
-    private EstadoCivil estadoCivil = new EstadoCivil();
+    [SupplyParameterFromForm]
+    private EstadoCivil estadoCivil { get; set; } = new EstadoCivil();
     private bool isSubmitting = false;
 
     protected override async Task OnInitializedAsync()

@@ -19,7 +19,7 @@
         @(IdMunicipio.HasValue ? "Editar Municipio" : "Agregar Nuevo Municipio")
     </MudText>
 
-    <EditForm Model="municipio" OnValidSubmit="HandleSubmit">
+    <EditForm Model="municipio" OnValidSubmit="HandleSubmit" FormName="MunicipioForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
@@ -85,7 +85,8 @@
 @code {
     [Parameter] public int? IdMunicipio { get; set; }
 
-    private Municipio municipio = new Municipio();
+    [SupplyParameterFromForm]
+    private Municipio municipio { get; set; } = new Municipio();
     private List<Departamento> departamentos = new();
     private bool isSubmitting = false;
 

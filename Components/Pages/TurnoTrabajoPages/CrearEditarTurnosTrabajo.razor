@@ -17,14 +17,14 @@
         @(IdTurno.HasValue ? "Editar Turno de Trabajo" : "Agregar Nuevo Turno de Trabajo")
     </MudText>
 
-    <EditForm Model="turnoTrabajo" OnValidSubmit="HandleSubmit">
+    <EditForm Model="turnoTrabajoForm" OnValidSubmit="HandleSubmit" FormName="TurnoTrabajoForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
             <MudItem xs="12" md="6">
                 <MudTextField Label="Nombre del Turno"
-                              @bind-Value="turnoTrabajo.NombreTurno"
-                              For="@(() => turnoTrabajo.NombreTurno)"
+                              @bind-Value="turnoTrabajoForm.NombreTurno"
+                              For="@(() => turnoTrabajoForm.NombreTurno)"
                               Variant="Variant.Outlined"
                               Required="true"
                               RequiredError="El nombre del turno es requerido"
@@ -36,7 +36,7 @@
 
             <MudItem xs="12" md="3">
                 <MudTimePicker Label="Hora de Inicio"
-                               @bind-Time="horaInicioTime"
+                               @bind-Time="turnoTrabajoForm.HoraInicioTime"
                                Variant="Variant.Outlined"
                                TimeFormat="HH:mm"
                                Required="true"
@@ -45,7 +45,7 @@
 
             <MudItem xs="12" md="3">
                 <MudTimePicker Label="Hora de Fin"
-                               @bind-Time="horaFinTime"
+                               @bind-Time="turnoTrabajoForm.HoraFinTime"
                                Variant="Variant.Outlined"
                                TimeFormat="HH:mm"
                                Required="true"
@@ -54,8 +54,8 @@
 
             <MudItem xs="12">
                 <MudTextField Label="Descripción"
-                              @bind-Value="turnoTrabajo.Descripcion"
-                              For="@(() => turnoTrabajo.Descripcion)"
+                              @bind-Value="turnoTrabajoForm.Descripcion"
+                              For="@(() => turnoTrabajoForm.Descripcion)"
                               Variant="Variant.Outlined"
                               Lines="3"
                               MaxLength="500"
@@ -64,22 +64,21 @@
                               Immediate="true" />
             </MudItem>
 
-            @if (horaInicioTime.HasValue && horaFinTime.HasValue)
+            @if (turnoTrabajoForm.HoraInicioTime.HasValue && turnoTrabajoForm.HoraFinTime.HasValue)
             {
                 <MudItem xs="12">
                     <MudAlert Severity="Severity.Info">
                         <strong>Información del Turno:</strong>
                         <br />
-                        <strong>Hora de Inicio:</strong> @horaInicioTime.Value.ToString(@"hh\:mm")
+                        <strong>Hora de Inicio:</strong> @turnoTrabajoForm.HoraInicioTime.Value.ToString(@"hh\:mm")
                         <br />
-                        <strong>Hora de Fin:</strong> @horaFinTime.Value.ToString(@"hh\:mm")
+                        <strong>Hora de Fin:</strong> @turnoTrabajoForm.HoraFinTime.Value.ToString(@"hh\:mm")
                         <br />
                         <strong>Duración:</strong> @CalcularDuracion()
                         @if (ValidarHorarios())
                         {
                             <br />
                             <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
-
                             <text>Horario válido</text>
                         }
                         else
@@ -124,12 +123,21 @@
 @code {
     [Parameter] public int? IdTurno { get; set; }
 
+    // ✅ MODERNIZADO: Modelo con estado persistente
+    [SupplyParameterFromForm]
+    private TurnoTrabajoFormModel turnoTrabajoForm { get; set; } = new TurnoTrabajoFormModel();
+
+    // Clase para el modelo del formulario
+    public class TurnoTrabajoFormModel
+    {
+        public string? NombreTurno { get; set; }
+        public string? Descripcion { get; set; }
+        public TimeSpan? HoraInicioTime { get; set; }
+        public TimeSpan? HoraFinTime { get; set; }
+    }
+
     private ProyectoFarmaVita.Models.TurnoTrabajo turnoTrabajo = new ProyectoFarmaVita.Models.TurnoTrabajo();
     private bool isSubmitting = false;
-
-    // Variables auxiliares para los TimePickers
-    private TimeSpan? horaInicioTime;
-    private TimeSpan? horaFinTime;
 
     protected override async Task OnInitializedAsync()
     {
@@ -140,15 +148,19 @@
             {
                 turnoTrabajo = await TurnoTrabajoServices.GetByIdAsync(IdTurno.Value);
 
+                // ✅ MODERNIZADO: Mapear datos a turnoTrabajoForm
+                turnoTrabajoForm.NombreTurno = turnoTrabajo.NombreTurno;
+                turnoTrabajoForm.Descripcion = turnoTrabajo.Descripcion;
+
                 // Convertir DateTime a TimeSpan para los TimePickers
                 if (turnoTrabajo.HoraInicio.HasValue)
                 {
-                    horaInicioTime = turnoTrabajo.HoraInicio.Value.TimeOfDay;
+                    turnoTrabajoForm.HoraInicioTime = turnoTrabajo.HoraInicio.Value.TimeOfDay;
                 }
 
                 if (turnoTrabajo.HoraFin.HasValue)
                 {
-                    horaFinTime = turnoTrabajo.HoraFin.Value.TimeOfDay;
+                    turnoTrabajoForm.HoraFinTime = turnoTrabajo.HoraFin.Value.TimeOfDay;
                 }
             }
             catch (Exception ex)
@@ -157,26 +169,22 @@
                 NavigationManager.NavigateTo("/turnotrabajo");
             }
         }
-        else
-        {
-            turnoTrabajo = new TurnoTrabajo();
-        }
     }
 
     private bool ValidarHorarios()
     {
-        if (!horaInicioTime.HasValue || !horaFinTime.HasValue)
+        if (!turnoTrabajoForm.HoraInicioTime.HasValue || !turnoTrabajoForm.HoraFinTime.HasValue)
             return false;
 
-        return horaFinTime.Value > horaInicioTime.Value;
+        return turnoTrabajoForm.HoraFinTime.Value > turnoTrabajoForm.HoraInicioTime.Value;
     }
 
     private string CalcularDuracion()
     {
-        if (!horaInicioTime.HasValue || !horaFinTime.HasValue)
+        if (!turnoTrabajoForm.HoraInicioTime.HasValue || !turnoTrabajoForm.HoraFinTime.HasValue)
             return "N/A";
 
-        var duracion = horaFinTime.Value - horaInicioTime.Value;
+        var duracion = turnoTrabajoForm.HoraFinTime.Value - turnoTrabajoForm.HoraInicioTime.Value;
         if (duracion.TotalMinutes < 0)
             return "Horario inválido";
 
@@ -204,17 +212,27 @@
 
         try
         {
+            // ✅ MODERNIZADO: Mapear datos desde turnoTrabajoForm a turnoTrabajo
+            turnoTrabajo.NombreTurno = turnoTrabajoForm.NombreTurno;
+            turnoTrabajo.Descripcion = turnoTrabajoForm.Descripcion;
+
             // Convertir TimeSpan a DateTime antes de guardar
             var fechaBase = DateTime.Today;
 
-            if (horaInicioTime.HasValue)
+            if (turnoTrabajoForm.HoraInicioTime.HasValue)
             {
-                turnoTrabajo.HoraInicio = fechaBase.Add(horaInicioTime.Value);
+                turnoTrabajo.HoraInicio = fechaBase.Add(turnoTrabajoForm.HoraInicioTime.Value);
             }
 
-            if (horaFinTime.HasValue)
+            if (turnoTrabajoForm.HoraFinTime.HasValue)
             {
-                turnoTrabajo.HoraFin = fechaBase.Add(horaFinTime.Value);
+                turnoTrabajo.HoraFin = fechaBase.Add(turnoTrabajoForm.HoraFinTime.Value);
+            }
+
+            // Si es edición, mantener el ID
+            if (IdTurno.HasValue)
+            {
+                turnoTrabajo.IdTurno = IdTurno.Value;
             }
 
             var result = await TurnoTrabajoServices.AddUpdateAsync(turnoTrabajo);

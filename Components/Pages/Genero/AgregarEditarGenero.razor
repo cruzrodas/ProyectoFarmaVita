@@ -1,25 +1,19 @@
 ﻿@page "/genero/agregar"
 @page "/genero/agregar/{IdGenero:int?}"
-
 @using ProyectoFarmaVita.Models
 @using ProyectoFarmaVita.Services.GeneroServices
 @using MudBlazor
-
 @inject IGeneroServices GeneroServices
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
-
 <h3 style="margin-bottom: 20px;">@(IdGenero.HasValue ? "Editar Genero" : "Nuevo Genero")</h3>
-
 <MudPaper Elevation="3" Class="pa-4">
     <MudText Typo="Typo.h5" Class="mb-4 text-center" Align="Align.Center">
         @(IdGenero.HasValue ? "Editar Genero" : "Agregar Nuevo Genero")
     </MudText>
-
-    <EditForm Model="genero" OnValidSubmit="HandleSubmit">
+    <EditForm Model="genero" OnValidSubmit="HandleSubmit" FormName="GeneroForm">
         <DataAnnotationsValidator />
-
         <MudGrid>
             <MudItem xs="12" md="6">
                 <MudTextField Label="Genero"
@@ -33,7 +27,6 @@
                               Immediate="true" />
             </MudItem>
         </MudGrid>
-
         <div class="d-flex justify-content-between mt-4">
             <MudButton Variant="Variant.Filled"
                        Color="Color.Secondary"
@@ -41,7 +34,6 @@
                        OnClick="@(() => NavigationManager.NavigateTo("/Genero"))">
                 Regresar
             </MudButton>
-
             <MudButton ButtonType="ButtonType.Submit"
                        Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -58,14 +50,13 @@
                 }
             </MudButton>
         </div>
-
     </EditForm>
 </MudPaper>
-
 @code {
     [Parameter] public int? IdGenero { get; set; }
 
-    private Genero genero = new Genero();
+    [SupplyParameterFromForm]
+    private Genero genero { get; set; } = new Genero();
     private bool isSubmitting = false;
 
     protected override async Task OnInitializedAsync()
@@ -92,11 +83,9 @@
     {
         isSubmitting = true;
         StateHasChanged();
-
         try
         {
             var result = await GeneroServices.AddUpdateAsync(genero);
-
             if (result)
             {
                 var message = IdGenero.HasValue ? "Genero actualizado correctamente" : "Genero creado correctamente";
@@ -118,5 +107,4 @@
             StateHasChanged();
         }
     }
-
 }

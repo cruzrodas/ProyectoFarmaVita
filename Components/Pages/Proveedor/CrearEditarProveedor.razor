@@ -30,7 +30,7 @@
         @(IdProveedor.HasValue ? "Editar Proveedor" : "Agregar Nuevo Proveedor")
     </MudText>
 
-    <EditForm Model="proveedorForm" OnValidSubmit="HandleSubmit">
+    <EditForm Model="proveedorForm" OnValidSubmit="HandleSubmit" FormName="ProveedorForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
@@ -51,7 +51,7 @@
                               Counter="100"
                               Immediate="true"
                               OnBlur="ValidateNombreProveedor" />
-                
+
                 @if (!string.IsNullOrEmpty(nombreValidationMessage))
                 {
                     <MudText Color="Color.Error" Typo="Typo.body2" Class="mt-1">@nombreValidationMessage</MudText>
@@ -183,7 +183,10 @@
     [Parameter] public int? IdProveedor { get; set; }
 
     private Proveedor proveedor = new Proveedor();
-    private ProveedorFormModel proveedorForm = new ProveedorFormModel();
+
+    [SupplyParameterFromForm]
+    private ProveedorFormModel proveedorForm { get; set; } = new ProveedorFormModel();
+
     private List<Persona> personas = new();
     private List<Departamento> departamentos = new();
     private List<Municipio> municipiosByDepartamento = new();

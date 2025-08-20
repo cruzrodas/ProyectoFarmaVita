@@ -22,7 +22,7 @@
         @(IdProducto.HasValue ? "Editar Producto" : "Agregar Nuevo Producto")
     </MudText>
 
-    <EditForm Model="productoForm" OnValidSubmit="HandleSubmit">
+    <EditForm Model="productoForm" OnValidSubmit="HandleSubmit" FormName="ProductoForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
@@ -303,7 +303,10 @@
     [Parameter] public int? IdProducto { get; set; }
 
     private Producto producto = new Producto();
-    private ProductoFormModel productoForm = new ProductoFormModel();
+
+    [SupplyParameterFromForm]
+    private ProductoFormModel productoForm { get; set; } = new ProductoFormModel();
+
     private List<Categoria> categorias = new();
     private List<Proveedor> proveedores = new();
     private bool isSubmitting = false;

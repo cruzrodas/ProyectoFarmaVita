@@ -18,7 +18,8 @@
         @(IdCategoria.HasValue ? "Editar Categoría" : "Agregar Nueva Categoría")
     </MudText>
 
-    <EditForm Model="categoriaForm" OnValidSubmit="HandleSubmit">
+    @* ============ CAMBIO 1: Agregar FormName ============ *@
+    <EditForm Model="categoriaForm" OnValidSubmit="HandleSubmit" FormName="CategoriaForm">
         <DataAnnotationsValidator />
         <ValidationSummary />
 
@@ -86,7 +87,11 @@
     [Parameter] public int? IdCategoria { get; set; }
 
     private Categoria categoria = new Categoria();
-    private CategoriaFormModel categoriaForm = new CategoriaFormModel();
+
+    @* ============ CAMBIO 2: Agregar [SupplyParameterFromForm] y cambiar a property ============ *@
+    [SupplyParameterFromForm]
+    private CategoriaFormModel categoriaForm { get; set; } = new CategoriaFormModel();
+
     private bool isSubmitting = false;
     private int productCount = 0;
     private string nombreValidationMessage = "";

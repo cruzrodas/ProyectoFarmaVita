@@ -12,7 +12,7 @@
 
 <PageTitle>FarmaVita - Iniciar Sesión</PageTitle>
 
-<MudPaper Elevation="0">
+<MudPaper Elevation="0" Class="mud-paper">
     <div class="login-card-content">
 
         <!-- Header -->
@@ -25,29 +25,29 @@
         </div>
 
         <!-- Formulario de Login -->
-        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
-            <DataAnnotationsValidator />
-
+        <div class="login-form">
             <MudText Typo="Typo.h5" Class="login-form-title">
                 Iniciar Sesión
             </MudText>
 
             <!-- Campo Email -->
-            <MudTextField @bind-Value="loginModel.Email"
+            <MudTextField @bind-Value="email"
                           Label="Correo Electrónico"
-                          For="@(() => loginModel.Email)"
                           Variant="Variant.Outlined"
                           InputType="InputType.Email"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Email"
                           AdornmentColor="Color.Primary"
                           Required="true"
-                          FullWidth="true" />
+                          FullWidth="true"
+                          Class="mb-3"
+                          Error="@(!string.IsNullOrEmpty(emailError))"
+                          ErrorText="@emailError"
+                          @onkeypress="@(async (e) => await OnKeyPress(e))" />
 
             <!-- Campo Contraseña -->
-            <MudTextField @bind-Value="loginModel.Password"
+            <MudTextField @bind-Value="password"
                           Label="Contraseña"
-                          For="@(() => loginModel.Password)"
                           Variant="Variant.Outlined"
                           InputType="@passwordInputType"
                           Adornment="Adornment.End"
@@ -55,41 +55,63 @@
                           OnAdornmentClick="@TogglePasswordVisibility"
                           AdornmentAriaLabel="Mostrar contraseña"
                           Required="true"
-                          FullWidth="true" />
+                          FullWidth="true"
+                          Class="mb-3"
+                          Error="@(!string.IsNullOrEmpty(passwordError))"
+                          ErrorText="@passwordError"
+                          @onkeypress="@(async (e) => await OnKeyPress(e))" />
 
             <!-- Checkbox Recordar -->
-            <MudCheckBox @bind-Value="loginModel.RememberMe"
+            <MudCheckBox @bind-Value="rememberMe"
                          Color="Color.Primary"
                          Label="Recordar mi sesión"
                          Class="login-checkbox" />
 
-            <!-- Errores de Validación -->
-            <ValidationSummary class="validation-summary" />
+            <!-- Errores de Login -->
+            @if (hasErrors)
+            {
+                <MudAlert Severity="Severity.Error" Class="my-3">
+                    @errorMessage
+                </MudAlert>
+            }
 
-            <!-- Botón Submit -->
-            <MudButton ButtonType="ButtonType.Submit"
+            <!-- Botón Submit - CORREGIDO -->
+            <MudButton OnClick="@HandleLogin"
                        Variant="Variant.Filled"
+                       Color="Color.Primary"
                        Disabled="@isLoading"
                        FullWidth="true"
                        Size="Size.Large"
-                       Class="login-button">
+                       Class="login-button mt-3"
+                       ButtonType="ButtonType.Button">
                 @if (isLoading)
                 {
-                    <MudProgressCircular Size="Size.Small"
-                                         Indeterminate="true" />
-                    <span>Iniciando sesión...</span>
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <span style="margin-left: 8px;">Iniciando sesión...</span>
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Filled.Login" Style="margin-right: 12px;" />
+                    <MudIcon Icon="@Icons.Material.Filled.Login" Style="margin-right: 8px;" />
                     <span>Iniciar Sesión</span>
                 }
             </MudButton>
 
-        </EditForm>
+            <!-- Botón de DEBUG (temporal) -->
+            @if (showDebugButton)
+            {
+                <MudButton OnClick="@TestButton"
+                           Variant="Variant.Text"
+                           Color="Color.Secondary"
+                           FullWidth="true"
+                           Size="Size.Small"
+                           Class="mt-2">
+                    🔧 Test Button (Debug)
+                </MudButton>
+            }
+        </div>
 
         <!-- Enlaces -->
-        <MudDivider />
+        <MudDivider Class="my-4" />
         <div class="login-links">
             <MudLink Href="#" Color="Color.Primary" Underline="Underline.Hover">
                 ¿Olvidaste tu contraseña?
@@ -107,52 +129,208 @@
 </MudPaper>
 
 @code {
-    private LoginModel loginModel = new();
+    // Variables del formulario
+    private string email = string.Empty;
+    private string password = string.Empty;
+    private bool rememberMe = false;
+
+    // Variables de estado
     private bool isLoading = false;
     private bool showPassword = false;
     private InputType passwordInputType = InputType.Password;
     private string passwordIcon = Icons.Material.Filled.VisibilityOff;
+    private bool hasErrors = false;
+    private string errorMessage = string.Empty;
+
+    // Variables de validación
+    private string emailError = string.Empty;
+    private string passwordError = string.Empty;
+
+    // DEBUG: Variable para mostrar botón de prueba
+    private bool showDebugButton = true;
 
     protected override async Task OnInitializedAsync()
     {
-        if (AuthService.IsAuthenticated)
+        try
         {
-            NavigationManager.NavigateTo("/", forceLoad: true);
+            Console.WriteLine("🔧 LOGIN: Inicializando página de login...");
+
+            // Verificar si AuthService está disponible
+            if (AuthService == null)
+            {
+                Console.WriteLine("❌ LOGIN: AuthService es null!");
+                return;
+            }
+
+            // Si ya está autenticado, redirigir al dashboard
+            if (AuthService.IsAuthenticated)
+            {
+                Console.WriteLine("✅ LOGIN: Usuario ya autenticado, redirigiendo...");
+                NavigationManager.NavigateTo("/", replace: true);
+                return;
+            }
+
+            Console.WriteLine("✅ LOGIN: Página de login inicializada correctamente");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 LOGIN ERROR en OnInitializedAsync: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    // MÉTODO DE DEBUG para probar que los clicks funcionan
+    private async Task TestButton()
+    {
+        Console.WriteLine("🔧 TEST BUTTON: Botón de prueba clickeado!");
+        Snackbar.Add("¡Botón de prueba funcionando!", Severity.Info);
+
+        // Test básico de validación
+        email = "test@test.com";
+        password = "123456";
+
+        if (ValidateForm())
+        {
+            Snackbar.Add("✅ Validación OK", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("❌ Validación falló", Severity.Error);
+        }
+
+        StateHasChanged();
+    }
+
+    private bool ValidateForm()
+    {
+        emailError = string.Empty;
+        passwordError = string.Empty;
+        bool isValid = true;
+
+        Console.WriteLine($"🔧 VALIDACIÓN - Email: '{email}', Password: '{password}'");
+
+        // Validar email
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            emailError = "El email es requerido";
+            isValid = false;
+            Console.WriteLine("❌ Email vacío");
+        }
+        else if (!IsValidEmail(email))
+        {
+            emailError = "Formato de email inválido";
+            isValid = false;
+            Console.WriteLine("❌ Email inválido");
+        }
+
+        // Validar password
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            passwordError = "La contraseña es requerida";
+            isValid = false;
+            Console.WriteLine("❌ Password vacío");
+        }
+        else if (password.Length < 3)
+        {
+            passwordError = "La contraseña debe tener al menos 3 caracteres";
+            isValid = false;
+            Console.WriteLine("❌ Password muy corto");
+        }
+
+        Console.WriteLine($"🔧 VALIDACIÓN resultado: {isValid}");
+        return isValid;
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
         }
     }
 
     private async Task HandleLogin()
     {
+        Console.WriteLine("🔧 HANDLE LOGIN: Método iniciado");
+
+        if (isLoading)
+        {
+            Console.WriteLine("⚠️ Ya está cargando, ignorando click");
+            return;
+        }
+
         isLoading = true;
-        StateHasChanged();
+        hasErrors = false;
+        errorMessage = string.Empty;
+
+        // Forzar actualización de UI
+        await InvokeAsync(StateHasChanged);
 
         try
         {
-            var result = await AuthService.LoginAsync(loginModel.Email, loginModel.Password);
+            Console.WriteLine($"🔧 LOGIN DEBUG - Email: '{email}', Password: '{password}'");
 
-            if (result.Success)
+            // Validar formulario
+            if (!ValidateForm())
             {
-                Snackbar.Add($"¡Bienvenido, {result.User?.Nombre}!", Severity.Success);
-                NavigationManager.NavigateTo("/", forceLoad: true);
+                Console.WriteLine("❌ Validación de formulario falló");
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            Console.WriteLine("✅ Validación OK, llamando a AuthService...");
+
+            // Verificar que AuthService existe
+            if (AuthService == null)
+            {
+                throw new InvalidOperationException("AuthService no está disponible");
+            }
+
+            var result = await AuthService.LoginAsync(email.Trim(), password);
+
+            Console.WriteLine($"🔧 Resultado del login - Success: {result?.Success ?? false}");
+            Console.WriteLine($"🔧 Mensaje: {result?.Message ?? "Sin mensaje"}");
+
+            if (result?.Success == true)
+            {
+                Console.WriteLine("✅ Login exitoso - Redirigiendo...");
+                Snackbar.Add($"¡Bienvenido, {result.User?.Nombre ?? "Usuario"}!", Severity.Success);
+
+                await Task.Delay(500);
+                NavigationManager.NavigateTo("/", replace: true);
             }
             else
             {
-                Snackbar.Add(result.Message ?? "Error al iniciar sesión", Severity.Error);
+                Console.WriteLine($"❌ Login fallido: {result?.Message}");
+                hasErrors = true;
+                errorMessage = result?.Message ?? "Credenciales incorrectas. Verifica tu email y contraseña.";
+                Snackbar.Add(errorMessage, Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error inesperado: {ex.Message}", Severity.Error);
+            Console.WriteLine($"💥 Error inesperado en login: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            hasErrors = true;
+            errorMessage = $"Error del sistema: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
         }
         finally
         {
             isLoading = false;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
+            Console.WriteLine("🔧 LOGIN: Proceso finalizado");
         }
     }
 
     private void TogglePasswordVisibility()
     {
+        Console.WriteLine("🔧 Toggle password visibility");
         if (showPassword)
         {
             showPassword = false;
@@ -165,18 +343,16 @@
             passwordInputType = InputType.Text;
             passwordIcon = Icons.Material.Filled.Visibility;
         }
+        StateHasChanged();
     }
 
-    public class LoginModel
+    // Manejar Enter en los campos
+    private async Task OnKeyPress(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {
-        [Required(ErrorMessage = "El email es requerido")]
-        [EmailAddress(ErrorMessage = "Formato de email inválido")]
-        public string Email { get; set; } = "";
-
-        [Required(ErrorMessage = "La contraseña es requerida")]
-        [MinLength(3, ErrorMessage = "La contraseña debe tener al menos 3 caracteres")]
-        public string Password { get; set; } = "";
-
-        public bool RememberMe { get; set; } = false;
+        if (e.Key == "Enter" && !isLoading)
+        {
+            Console.WriteLine("🔧 Enter presionado, ejecutando login");
+            await HandleLogin();
+        }
     }
 }

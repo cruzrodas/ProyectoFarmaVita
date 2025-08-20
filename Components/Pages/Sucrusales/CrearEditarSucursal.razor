@@ -31,14 +31,14 @@
         @(IdSucursal.HasValue ? "Editar Sucursal" : "Agregar Nueva Sucursal")
     </MudText>
 
-    <EditForm Model="sucursal" OnValidSubmit="HandleSubmit">
+    <EditForm Model="sucursalForm" OnValidSubmit="HandleSubmit" FormName="SucursalForm">
         <DataAnnotationsValidator />
 
         <MudGrid>
             <MudItem xs="12" md="6">
                 <MudTextField Label="Nombre de la Sucursal"
-                              @bind-Value="sucursal.NombreSucursal"
-                              For="@(() => sucursal.NombreSucursal)"
+                              @bind-Value="sucursalForm.NombreSucursal"
+                              For="@(() => sucursalForm.NombreSucursal)"
                               Variant="Variant.Outlined"
                               Required="true"
                               RequiredError="El nombre de la sucursal es requerido"
@@ -49,8 +49,8 @@
 
             <MudItem xs="12" md="6">
                 <MudTextField Label="Email de la Sucursal"
-                              @bind-Value="sucursal.EmailSucursal"
-                              For="@(() => sucursal.EmailSucursal)"
+                              @bind-Value="sucursalForm.EmailSucursal"
+                              For="@(() => sucursalForm.EmailSucursal)"
                               Variant="Variant.Outlined"
                               InputType="InputType.Email"
                               MaxLength="100"
@@ -61,8 +61,8 @@
             <MudItem xs="12" md="6">
                 <MudSelect T="int?"
                            Label="Responsable de la Sucursal"
-                           @bind-Value="sucursal.ResponsableSucursal"
-                           For="@(() => sucursal.ResponsableSucursal)"
+                           @bind-Value="sucursalForm.ResponsableSucursal"
+                           For="@(() => sucursalForm.ResponsableSucursal)"
                            Variant="Variant.Outlined"
                            Required="true"
                            RequiredError="Debe seleccionar un responsable">
@@ -79,8 +79,8 @@
             <MudItem xs="12" md="6">
                 <MudSelect T="int?"
                            Label="Inventario"
-                           @bind-Value="sucursal.IdInventario"
-                           For="@(() => sucursal.IdInventario)"
+                           @bind-Value="sucursalForm.IdInventario"
+                           For="@(() => sucursalForm.IdInventario)"
                            Variant="Variant.Outlined"
                            Clearable="true">
                     <MudSelectItem T="int?" Value="@((int?)null)">Sin inventario</MudSelectItem>
@@ -96,14 +96,14 @@
 
             <MudItem xs="12" md="3">
                 <MudTimePicker Label="Horario de Apertura"
-                               @bind-Time="horarioAperturaTime"
+                               @bind-Time="sucursalForm.HorarioAperturaTime"
                                Variant="Variant.Outlined"
                                TimeFormat="HH:mm" />
             </MudItem>
 
             <MudItem xs="12" md="3">
                 <MudTimePicker Label="Horario de Cierre"
-                               @bind-Time="horarioCierreTime"
+                               @bind-Time="sucursalForm.HorarioCierreTime"
                                Variant="Variant.Outlined"
                                TimeFormat="HH:mm" />
             </MudItem>
@@ -116,7 +116,7 @@
 
             <MudItem xs="12" md="6">
                 <MudTextField Label="Número Telefónico"
-                              @bind-Value="numeroTelefonico"
+                              @bind-Value="sucursalForm.NumeroTelefonico"
                               Variant="Variant.Outlined"
                               InputType="InputType.Number"
                               HelperText="Ingresa el número de teléfono de la sucursal"
@@ -131,7 +131,7 @@
 
             <MudItem xs="12" md="8">
                 <MudTextField Label="Dirección Completa"
-                              @bind-Value="direccionCompleta"
+                              @bind-Value="sucursalForm.DireccionCompleta"
                               Variant="Variant.Outlined"
                               MaxLength="200"
                               Counter="200"
@@ -142,7 +142,7 @@
             <MudItem xs="12" md="6">
                 <MudSelect T="int?"
                            Label="Departamento"
-                           @bind-Value="selectedDepartamentoId"
+                           @bind-Value="sucursalForm.SelectedDepartamentoId"
                            Variant="Variant.Outlined"
                            OnSelectionChanged="OnDepartamentoChanged">
                     @if (departamentos != null)
@@ -158,7 +158,7 @@
             <MudItem xs="12" md="6">
                 <MudSelect T="int?"
                            Label="Municipio"
-                           @bind-Value="selectedMunicipioId"
+                           @bind-Value="sucursalForm.SelectedMunicipioId"
                            Variant="Variant.Outlined"
                            Disabled="@(municipiosByDepartamento == null || !municipiosByDepartamento.Any())">
                     @if (municipiosByDepartamento != null)
@@ -203,63 +203,42 @@
 @code {
     [Parameter] public int? IdSucursal { get; set; }
 
+    // ✅ MODERNIZADO: Modelo con estado persistente
+    [SupplyParameterFromForm]
+    private SucursalFormModel sucursalForm { get; set; } = new SucursalFormModel();
+
+    // Clase para el modelo del formulario
+    public class SucursalFormModel
+    {
+        public string? NombreSucursal { get; set; }
+        public string? EmailSucursal { get; set; }
+        public int? ResponsableSucursal { get; set; }
+        public int? IdInventario { get; set; }
+        public TimeSpan? HorarioAperturaTime { get; set; }
+        public TimeSpan? HorarioCierreTime { get; set; }
+        public int? NumeroTelefonico { get; set; }
+        public string? DireccionCompleta { get; set; }
+        public int? SelectedDepartamentoId { get; set; }
+        public int? SelectedMunicipioId { get; set; }
+
+        // IDs para edición
+        public int? IdTelefono { get; set; }
+        public int? IdDireccion { get; set; }
+    }
+
     private Sucursal sucursal = new Sucursal();
     private List<Persona> responsables = new();
     private List<Inventario> inventarios = new();
     private List<Departamento> departamentos = new();
     private List<Municipio> municipiosByDepartamento = new();
     private bool isSubmitting = false;
-    private bool isLoadingMunicipios = false; // Flag para evitar múltiples cargas
-    private bool _isLoadingInitialData = false; // Flag para evitar conflictos durante la carga inicial
-    private CancellationTokenSource municipiosCancellationToken; // Para cancelar operaciones pendientes
-
-    // Variables auxiliares para los TimePickers
-    private TimeSpan? horarioAperturaTime;
-    private TimeSpan? horarioCierreTime;
-
-    // Variables para crear nuevos registros
-    private int? numeroTelefonico;
-    private string? direccionCompleta;
-
-    private int? _selectedDepartamentoId;
-    private int? selectedDepartamentoId
-    {
-        get => _selectedDepartamentoId;
-        set
-        {
-            if (_selectedDepartamentoId != value)
-            {
-                _selectedDepartamentoId = value;
-
-                // No ejecutar el cambio automático si estamos cargando datos iniciales
-                if (_isLoadingInitialData)
-                {
-                    Console.WriteLine("🔄 Saltando OnDepartamentoChanged - Carga inicial en progreso");
-                    return;
-                }
-
-                // Cancelar operación anterior si existe
-                municipiosCancellationToken?.Cancel();
-                municipiosCancellationToken = new CancellationTokenSource();
-
-                // Usar Task.Run para evitar problemas de concurrencia
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(300, municipiosCancellationToken.Token); // Debounce de 300ms
-                    if (!municipiosCancellationToken.Token.IsCancellationRequested)
-                    {
-                        await InvokeAsync(OnDepartamentoChanged);
-                    }
-                });
-            }
-        }
-    }
-
-    private int? selectedMunicipioId;
+    private bool isLoadingMunicipios = false;
+    private bool _isLoadingInitialData = false;
+    private CancellationTokenSource municipiosCancellationToken;
 
     protected override async Task OnInitializedAsync()
     {
-        _isLoadingInitialData = true; // Activar flag para evitar conflictos
+        _isLoadingInitialData = true;
 
         try
         {
@@ -272,16 +251,26 @@
                 {
                     sucursal = await SucursalServices.GetByIdAsync(IdSucursal.Value);
 
+                    // ✅ MODERNIZADO: Mapear datos a sucursalForm
+                    sucursalForm.NombreSucursal = sucursal.NombreSucursal;
+                    sucursalForm.EmailSucursal = sucursal.EmailSucursal;
+                    sucursalForm.ResponsableSucursal = sucursal.ResponsableSucursal;
+                    sucursalForm.IdInventario = sucursal.IdInventario;
+
                     // Convertir TimeOnly a TimeSpan para los TimePickers
                     if (sucursal.HorarioApertura.HasValue)
                     {
-                        horarioAperturaTime = sucursal.HorarioApertura.Value.ToTimeSpan();
+                        sucursalForm.HorarioAperturaTime = sucursal.HorarioApertura.Value.ToTimeSpan();
                     }
 
                     if (sucursal.HorarioCierre.HasValue)
                     {
-                        horarioCierreTime = sucursal.HorarioCierre.Value.ToTimeSpan();
+                        sucursalForm.HorarioCierreTime = sucursal.HorarioCierre.Value.ToTimeSpan();
                     }
+
+                    // Guardar IDs para edición
+                    sucursalForm.IdTelefono = sucursal.IdTelefono;
+                    sucursalForm.IdDireccion = sucursal.IdDireccion;
 
                     // Cargar datos relacionados para edición
                     await LoadRelatedDataForEdit();
@@ -292,15 +281,11 @@
                     NavigationManager.NavigateTo("/sucursal");
                 }
             }
-            else
-            {
-                sucursal = new Sucursal();
-            }
         }
         finally
         {
-            _isLoadingInitialData = false; // Desactivar flag al terminar la carga
-            StateHasChanged(); // Forzar actualización final
+            _isLoadingInitialData = false;
+            StateHasChanged();
         }
     }
 
@@ -310,7 +295,6 @@
         {
             Console.WriteLine("🔄 Cargando datos secuencialmente para evitar conflictos de DbContext...");
 
-            // Cargar secuencialmente en lugar de en paralelo para evitar conflictos de DbContext
             await LoadResponsables();
             await LoadInventarios();
             await LoadDepartamentos();
@@ -361,8 +345,6 @@
                 return;
             }
 
-            Console.WriteLine("✅ DepartamentoServices inyectado correctamente");
-
             departamentos = await DepartamentoServices.GetAllAsync();
 
             if (departamentos == null)
@@ -373,24 +355,10 @@
             }
 
             Console.WriteLine($"📊 Departamentos cargados: {departamentos.Count}");
-
-            if (departamentos.Count == 0)
-            {
-                Console.WriteLine("⚠️ No hay departamentos en la base de datos");
-                Snackbar.Add("No hay departamentos disponibles en la base de datos", Severity.Warning);
-            }
-            else
-            {
-                foreach (var dept in departamentos)
-                {
-                    Console.WriteLine($"   - ID: {dept.IdDepartamento}, Nombre: {dept.NombreDepartamento}, Activo: {dept.Activo}");
-                }
-            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"💥 Error al cargar departamentos: {ex.Message}");
-            Console.WriteLine($"📋 StackTrace: {ex.StackTrace}");
             Snackbar.Add($"Error crítico: {ex.Message}", Severity.Error);
             departamentos = new List<Departamento>();
         }
@@ -399,46 +367,30 @@
     private async Task LoadRelatedDataForEdit()
     {
         // Si es edición, cargar los datos relacionados existentes
-        if (sucursal.IdDireccion.HasValue)
+        if (sucursalForm.IdDireccion.HasValue)
         {
             try
             {
-                var direccionExistente = await DireccionServices.GetByIdAsync(sucursal.IdDireccion.Value);
-                direccionCompleta = direccionExistente.Direccion1;
-                selectedMunicipioId = direccionExistente.IdMunicipio;
+                var direccionExistente = await DireccionServices.GetByIdAsync(sucursalForm.IdDireccion.Value);
+                sucursalForm.DireccionCompleta = direccionExistente.Direccion1;
+                sucursalForm.SelectedMunicipioId = direccionExistente.IdMunicipio;
 
                 // Cargar el departamento del municipio
-                if (selectedMunicipioId.HasValue)
+                if (sucursalForm.SelectedMunicipioId.HasValue)
                 {
                     var municipios = await MunicipioServices.GetAllAsync();
-                    var municipio = municipios.FirstOrDefault(m => m.IdMunicipio == selectedMunicipioId.Value);
+                    var municipio = municipios.FirstOrDefault(m => m.IdMunicipio == sucursalForm.SelectedMunicipioId.Value);
                     if (municipio != null && municipio.IdDepartamento.HasValue)
                     {
-                        // SOLUCIÓN: Asignar directamente al campo privado para evitar el setter automático
-                        _selectedDepartamentoId = municipio.IdDepartamento;
+                        sucursalForm.SelectedDepartamentoId = municipio.IdDepartamento;
 
-                        // Cargar municipios manualmente sin delay
-                        Console.WriteLine($"🏢 Cargando municipios para edición - Departamento ID: {municipio.IdDepartamento.Value}");
-
+                        // Cargar municipios para edición
                         var municipiosPorDepartamento = await MunicipioServices.GetByDepartamentoIdAsync(municipio.IdDepartamento.Value);
                         if (municipiosPorDepartamento != null)
                         {
                             municipiosByDepartamento = municipiosPorDepartamento;
-                            Console.WriteLine($"📍 Municipios cargados para edición: {municipiosByDepartamento.Count}");
-
-                            // Verificar que el municipio seleccionado esté en la lista
-                            var municipioEncontrado = municipiosByDepartamento.FirstOrDefault(m => m.IdMunicipio == selectedMunicipioId.Value);
-                            if (municipioEncontrado != null)
-                            {
-                                Console.WriteLine($"✅ Municipio encontrado: {municipioEncontrado.NombreMunicipio}");
-                            }
-                            else
-                            {
-                                Console.WriteLine($"❌ Municipio con ID {selectedMunicipioId.Value} no encontrado en la lista");
-                            }
                         }
 
-                        // Forzar actualización de la UI
                         StateHasChanged();
                     }
                 }
@@ -450,12 +402,12 @@
             }
         }
 
-        if (sucursal.IdTelefono.HasValue)
+        if (sucursalForm.IdTelefono.HasValue)
         {
             try
             {
-                var telefonoExistente = await TelefonoServices.GetByIdAsync(sucursal.IdTelefono.Value);
-                numeroTelefonico = telefonoExistente.NumeroTelefonico;
+                var telefonoExistente = await TelefonoServices.GetByIdAsync(sucursalForm.IdTelefono.Value);
+                sucursalForm.NumeroTelefonico = telefonoExistente.NumeroTelefonico;
             }
             catch (Exception ex)
             {
@@ -467,51 +419,38 @@
 
     private async Task OnDepartamentoChanged()
     {
-        // Evitar múltiples ejecuciones simultáneas
-        if (isLoadingMunicipios)
+        if (isLoadingMunicipios || _isLoadingInitialData)
         {
-            Console.WriteLine("⏳ Ya se está cargando municipios, saltando...");
             return;
         }
 
         isLoadingMunicipios = true;
-        Console.WriteLine($"🏢 Departamento cambiado a: {selectedDepartamentoId}");
 
         try
         {
-            if (selectedDepartamentoId.HasValue)
+            if (sucursalForm.SelectedDepartamentoId.HasValue)
             {
-                Console.WriteLine($"🔍 Cargando municipios para departamento ID: {selectedDepartamentoId.Value}");
-
-                // Resetear municipio seleccionado inmediatamente
-                selectedMunicipioId = null;
+                // Resetear municipio seleccionado
+                sucursalForm.SelectedMunicipioId = null;
                 municipiosByDepartamento = new List<Municipio>();
-                StateHasChanged(); // Actualizar UI inmediatamente
+                StateHasChanged();
 
                 // Cargar municipios
-                var municipios = await MunicipioServices.GetByDepartamentoIdAsync(selectedDepartamentoId.Value);
+                var municipios = await MunicipioServices.GetByDepartamentoIdAsync(sucursalForm.SelectedDepartamentoId.Value);
 
                 if (municipios != null)
                 {
                     municipiosByDepartamento = municipios;
-                    Console.WriteLine($"📍 Municipios cargados: {municipiosByDepartamento.Count}");
-
-                    foreach (var municipio in municipiosByDepartamento)
-                    {
-                        Console.WriteLine($"   - ID: {municipio.IdMunicipio}, Nombre: {municipio.NombreMunicipio}");
-                    }
                 }
                 else
                 {
-                    Console.WriteLine("⚠️ La consulta retornó null");
                     municipiosByDepartamento = new List<Municipio>();
                 }
             }
             else
             {
-                Console.WriteLine("❌ No hay departamento seleccionado");
                 municipiosByDepartamento = new List<Municipio>();
-                selectedMunicipioId = null;
+                sucursalForm.SelectedMunicipioId = null;
             }
         }
         catch (Exception ex)
@@ -523,7 +462,7 @@
         finally
         {
             isLoadingMunicipios = false;
-            StateHasChanged(); // Forzar actualización final de la UI
+            StateHasChanged();
         }
     }
 
@@ -540,39 +479,44 @@
 
         try
         {
+            // ✅ MODERNIZADO: Mapear datos desde sucursalForm a sucursal
+            sucursal.NombreSucursal = sucursalForm.NombreSucursal;
+            sucursal.EmailSucursal = sucursalForm.EmailSucursal;
+            sucursal.ResponsableSucursal = sucursalForm.ResponsableSucursal;
+            sucursal.IdInventario = sucursalForm.IdInventario;
+
             // Convertir TimeSpan a TimeOnly antes de guardar
-            if (horarioAperturaTime.HasValue)
+            if (sucursalForm.HorarioAperturaTime.HasValue)
             {
-                sucursal.HorarioApertura = TimeOnly.FromTimeSpan(horarioAperturaTime.Value);
+                sucursal.HorarioApertura = TimeOnly.FromTimeSpan(sucursalForm.HorarioAperturaTime.Value);
             }
 
-            if (horarioCierreTime.HasValue)
+            if (sucursalForm.HorarioCierreTime.HasValue)
             {
-                sucursal.HorarioCierre = TimeOnly.FromTimeSpan(horarioCierreTime.Value);
+                sucursal.HorarioCierre = TimeOnly.FromTimeSpan(sucursalForm.HorarioCierreTime.Value);
             }
 
             // ========== MANEJO DE TELÉFONO ==========
-            if (numeroTelefonico.HasValue && numeroTelefonico > 0)
+            if (sucursalForm.NumeroTelefonico.HasValue && sucursalForm.NumeroTelefonico > 0)
             {
-                if (sucursal.IdTelefono.HasValue && IdSucursal.HasValue)
+                if (sucursalForm.IdTelefono.HasValue && IdSucursal.HasValue)
                 {
                     // MODO EDICIÓN: Actualizar teléfono existente
-                    Console.WriteLine($"📞 Actualizando teléfono existente ID: {sucursal.IdTelefono.Value}");
                     var telefonoExistente = new Telefono
                     {
-                        IdTelefono = sucursal.IdTelefono.Value,
-                        NumeroTelefonico = numeroTelefonico,
+                        IdTelefono = sucursalForm.IdTelefono.Value,
+                        NumeroTelefonico = sucursalForm.NumeroTelefonico,
                         Activo = true
                     };
                     await TelefonoServices.AddUpdateAsync(telefonoExistente);
+                    sucursal.IdTelefono = sucursalForm.IdTelefono;
                 }
                 else
                 {
                     // MODO CREACIÓN: Crear nuevo teléfono
-                    Console.WriteLine("📞 Creando nuevo teléfono");
                     var nuevoTelefono = new Telefono
                     {
-                        NumeroTelefonico = numeroTelefonico,
+                        NumeroTelefonico = sucursalForm.NumeroTelefonico,
                         Activo = true
                     };
                     var telefonoId = await TelefonoServices.AddAsync(nuevoTelefono);
@@ -581,34 +525,39 @@
             }
 
             // ========== MANEJO DE DIRECCIÓN ==========
-            if (!string.IsNullOrEmpty(direccionCompleta) && selectedMunicipioId.HasValue)
+            if (!string.IsNullOrEmpty(sucursalForm.DireccionCompleta) && sucursalForm.SelectedMunicipioId.HasValue)
             {
-                if (sucursal.IdDireccion.HasValue && IdSucursal.HasValue)
+                if (sucursalForm.IdDireccion.HasValue && IdSucursal.HasValue)
                 {
                     // MODO EDICIÓN: Actualizar dirección existente
-                    Console.WriteLine($"🏠 Actualizando dirección existente ID: {sucursal.IdDireccion.Value}");
                     var direccionExistente = new Direccion
                     {
-                        IdDireccion = sucursal.IdDireccion.Value,
-                        Direccion1 = direccionCompleta,
-                        IdMunicipio = selectedMunicipioId,
+                        IdDireccion = sucursalForm.IdDireccion.Value,
+                        Direccion1 = sucursalForm.DireccionCompleta,
+                        IdMunicipio = sucursalForm.SelectedMunicipioId,
                         Activo = true
                     };
                     await DireccionServices.AddUpdateAsync(direccionExistente);
+                    sucursal.IdDireccion = sucursalForm.IdDireccion;
                 }
                 else
                 {
                     // MODO CREACIÓN: Crear nueva dirección
-                    Console.WriteLine("🏠 Creando nueva dirección");
                     var nuevaDireccion = new Direccion
                     {
-                        Direccion1 = direccionCompleta,
-                        IdMunicipio = selectedMunicipioId,
+                        Direccion1 = sucursalForm.DireccionCompleta,
+                        IdMunicipio = sucursalForm.SelectedMunicipioId,
                         Activo = true
                     };
                     var direccionId = await DireccionServices.AddAsync(nuevaDireccion);
                     sucursal.IdDireccion = direccionId;
                 }
+            }
+
+            // Si es edición, mantener el ID
+            if (IdSucursal.HasValue)
+            {
+                sucursal.IdSucursal = IdSucursal.Value;
             }
 
             var result = await SucursalServices.AddUpdateAsync(sucursal);

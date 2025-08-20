@@ -1,10 +1,11 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
+﻿@* Routes.razor - Versión corregida *@
+@using Microsoft.AspNetCore.Components.Authorization
 
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
-            <NotAuthorized>
-                @if (context.User.Identity?.IsAuthenticated != true)
+            <NotAuthorized Context="authContext">
+                @if (authContext.User.Identity?.IsAuthenticated != true)
                 {
                     <!-- Usuario no autenticado - redirigir al login -->
                     <RedirectToLogin />
